@@ -1,5 +1,0 @@
-✓ JSON storage initialization complete: data
-✓ Loaded 5 facilities from file
-✓ Loaded 1 bookings from file
-Server listening on port 8080
-Invocation semantic: at-least-once
