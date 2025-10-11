@@ -52,6 +52,13 @@ if make; then
     echo -e "${GREEN}✓ Build successful${NC}"
 else
     echo -e "${RED}✗ Build failed${NC}"
+    echo ""
+    echo "Common build issues:"
+    echo "  1. Missing g++: sudo apt install g++ (Ubuntu) or sudo yum install gcc-c++ (CentOS)"
+    echo "  2. C++17 support: Ensure g++ version >= 7.0"
+    echo "  3. Missing nlohmann/json: Already included in server/include/json.hpp"
+    echo ""
+    echo "Check the error output above for details."
     exit 1
 fi
 echo ""

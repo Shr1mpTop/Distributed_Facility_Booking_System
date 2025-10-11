@@ -244,9 +244,15 @@ traceroute your-server-ip
 
 ### 2.3 启动本地客户端
 
-#### GUI 客户端（推荐）
+#### ⚠️ 重要提示：GUI 客户端必须在本地运行
+
+GUI 客户端和监控客户端都使用 tkinter，**需要图形界面环境(X11/Wayland)**。
+- ✅ **正确**: 在本地机器（有图形界面）上运行 GUI，连接远程服务器
+- ❌ **错误**: 在远程无图形界面的服务器上运行 GUI
+
+#### GUI 客户端（推荐用于本地）
 ```bash
-# 在本地机器上
+# 在本地机器上（Windows/macOS/Linux with GUI）
 cd /path/to/Distributed_Facility_Booking_System
 
 # 启动 GUI 客户端，连接远程服务器
@@ -256,13 +262,24 @@ python3 client/gui/gui_client.py your-server-ip 8080
 python3 client/gui/gui_client.py 8.148.159.175 8080
 ```
 
-#### CLI 客户端
+**如果在远程服务器上出现以下错误**:
+```
+_tkinter.TclError: no display name and no $DISPLAY environment variable
+```
+这是正常的，因为服务器没有图形界面。请在本地机器上运行 GUI 客户端。
+
+#### CLI 客户端（推荐用于服务器）
 ```bash
+# 可以在本地或服务器上运行
 python3 client/cli/cli_client.py your-server-ip 8080
+
+# 如果在服务器上测试，使用 localhost
+python3 client/cli/cli_client.py localhost 8080
 ```
 
-#### 独立监控客户端
+#### 独立监控客户端（仅本地）
 ```bash
+# 需要图形界面，只能在本地运行
 python3 client/monitor/monitor_client.py your-server-ip 8080
 ```
 
@@ -296,7 +313,36 @@ nc -ul 8080
 echo "test" | nc -u your-server-ip 8080
 ```
 
-### 3.2 服务器崩溃
+### 3.2 GUI 客户端显示错误
+
+**问题**: 在服务器上运行 GUI 客户端报错
+```
+_tkinter.TclError: no display name and no $DISPLAY environment variable
+```
+
+**原因**: GUI 客户端需要图形界面，远程服务器通常没有
+
+**解决方案**:
+1. ✅ **推荐**: 在本地机器上运行 GUI 客户端，连接远程服务器
+   ```bash
+   # 在本地机器上
+   python3 client/gui/gui_client.py 8.148.159.175 8080
+   ```
+
+2. 在服务器上使用 CLI 客户端进行测试
+   ```bash
+   # 在服务器上
+   python3 client/cli/cli_client.py localhost 8080
+   ```
+
+3. 如果必须在服务器上使用 GUI（不推荐）
+   ```bash
+   # 使用 X11 转发（性能差，延迟高）
+   ssh -X user@your-server-ip
+   python3 client/gui/gui_client.py localhost 8080
+   ```
+
+### 3.3 服务器崩溃
 
 **问题**: 服务器意外停止
 
@@ -315,7 +361,7 @@ free -h
 df -h
 ```
 
-### 3.3 数据丢失
+### 3.4 数据丢失
 
 **问题**: 服务器重启后预订数据丢失
 

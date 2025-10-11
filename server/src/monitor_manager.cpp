@@ -7,6 +7,7 @@
 #include "../include/message_types.h"
 #include <sys/socket.h>
 #include <iostream>
+#include <algorithm>
 
 MonitorManager::MonitorManager() {}
 
