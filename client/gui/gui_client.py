@@ -61,7 +61,6 @@ class FacilityBookingGUI:
         self.create_query_tab(main_container)
         self.create_book_tab(main_container)
         self.create_change_tab(main_container)
-        self.create_monitor_tab(main_container)
         self.create_operations_tab(main_container)
         
         # Bottom log area
@@ -167,35 +166,6 @@ class FacilityBookingGUI:
         self.change_result = scrolledtext.ScrolledText(frame, height=10, width=70)
         self.change_result.grid(row=4, column=0, columnspan=2, pady=5)
         
-    def create_monitor_tab(self, notebook):
-        """Create monitor tab"""
-        frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="Monitor Facility")
-        
-        # Facility name
-        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.monitor_facility = ttk.Combobox(frame, width=30)
-        self.monitor_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
-                                           'Lab_101', 'Lab_102', 'Auditorium')
-        self.monitor_facility.grid(row=0, column=1, pady=5, padx=5)
-        self.monitor_facility.current(0)
-        
-        # Monitor duration
-        ttk.Label(frame, text="Monitor Duration (seconds):").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.monitor_duration = ttk.Entry(frame, width=32)
-        self.monitor_duration.insert(0, "60")
-        self.monitor_duration.grid(row=1, column=1, pady=5, padx=5)
-        
-        # Monitor button
-        self.monitor_button = ttk.Button(frame, text="Start Monitoring", 
-                                        command=self.monitor_facility_action)
-        self.monitor_button.grid(row=2, column=0, columnspan=2, pady=10)
-        
-        # Results display
-        ttk.Label(frame, text="Monitor Updates:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.monitor_result = scrolledtext.ScrolledText(frame, height=15, width=70)
-        self.monitor_result.grid(row=4, column=0, columnspan=2, pady=5)
-        
     def create_operations_tab(self, notebook):
         """Create operations tab"""
         frame = ttk.Frame(notebook, padding="10")
@@ -296,32 +266,32 @@ class FacilityBookingGUI:
                 start_dt = datetime.fromtimestamp(start_time)
                 end_dt = datetime.fromtimestamp(end_time)
                 
-                result_text += f"{i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} 至 {end_dt.strftime('%H:%M')}\n"
+                result_text += f"{i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}\n"
             
             self.query_result.delete('1.0', tk.END)
             self.query_result.insert(tk.END, result_text)
-            self.log(f"查询成功，找到 {num_slots} 个时间段")
+            self.log(f"Query successful, found {num_slots} time slots")
             
         except Exception as e:
-            messagebox.showerror("错误", f"查询失败: {str(e)}")
-            self.log(f"错误: {str(e)}")
+            messagebox.showerror("Error", f"Query failed: {str(e)}")
+            self.log(f"Error: {str(e)}")
             
     def book_facility_action(self):
-        """预订设施"""
+        """Book facility"""
         try:
             facility_name = self.book_facility.get().strip()
             date_str = self.book_date.get().strip()
             time_str = self.book_time.get().strip()
             duration_hours = float(self.book_duration.get().strip())
             
-            # 解析时间
+            # Parse time
             start_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
             start_time = int(start_dt.timestamp())
             end_time = start_time + int(duration_hours * 3600)
             
-            self.log(f"预订 {facility_name}...")
+            self.log(f"Booking {facility_name}...")
             
-            # 构建请求
+            # Build request
             request = ByteBuffer()
             request_id = self.network.get_next_request_id()
             request.write_uint32(request_id)
@@ -335,15 +305,15 @@ class FacilityBookingGUI:
             request.write_uint16(len(payload.buffer))
             request.buffer.extend(payload.buffer)
             
-            # 发送请求
+            # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
                 self.book_result.delete('1.0', tk.END)
-                self.book_result.insert(tk.END, "请求超时\n")
-                self.log("请求超时")
+                self.book_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
                 return
             
-            # 解析响应
+            # Parse response
             response = ByteBuffer(response_data)
             resp_request_id = response.read_uint32()
             status = response.read_uint8()
@@ -351,35 +321,35 @@ class FacilityBookingGUI:
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
                 self.book_result.delete('1.0', tk.END)
-                self.book_result.insert(tk.END, f"预订失败: {error_msg}\n")
-                self.log(f"预订失败: {error_msg}")
+                self.book_result.insert(tk.END, f"Booking failed: {error_msg}\n")
+                self.log(f"Booking failed: {error_msg}")
                 return
             
-            # 读取确认ID
+            # Read confirmation ID
             confirmation_id = response.read_uint32()
-            result_text = f"✓ 预订成功!\n\n"
-            result_text += f"确认ID: {confirmation_id}\n"
-            result_text += f"设施: {facility_name}\n"
-            result_text += f"时间: {start_dt.strftime('%Y-%m-%d %H:%M')} 至 {datetime.fromtimestamp(end_time).strftime('%H:%M')}\n"
+            result_text = f"✓ BookingSuccess!\n\n"
+            result_text += f"Confirmation ID: {confirmation_id}\n"
+            result_text += f"Facility: {facility_name}\n"
+            result_text += f"Time: {start_dt.strftime('%Y-%m-%d %H:%M')} to {datetime.fromtimestamp(end_time).strftime('%H:%M')}\n"
             
             self.book_result.delete('1.0', tk.END)
             self.book_result.insert(tk.END, result_text)
-            self.log(f"预订成功，确认ID: {confirmation_id}")
-            messagebox.showinfo("成功", f"预订成功！确认ID: {confirmation_id}")
+            self.log(f"BookingSuccess，Confirmation ID: {confirmation_id}")
+            messagebox.showinfo("Success", f"BookingSuccess！Confirmation ID: {confirmation_id}")
             
         except Exception as e:
-            messagebox.showerror("错误", f"预订失败: {str(e)}")
-            self.log(f"错误: {str(e)}")
+            messagebox.showerror("Error", f"Booking failed: {str(e)}")
+            self.log(f"Error: {str(e)}")
             
     def change_booking(self):
-        """修改预订"""
+        """Change booking"""
         try:
             confirmation_id = int(self.change_id.get().strip())
             offset_minutes = int(self.change_offset.get().strip())
             
-            self.log(f"修改预订 ID {confirmation_id}...")
+            self.log(f"Change booking ID {confirmation_id}...")
             
-            # 构建请求
+            # Build request
             request = ByteBuffer()
             request_id = self.network.get_next_request_id()
             request.write_uint32(request_id)
@@ -392,15 +362,15 @@ class FacilityBookingGUI:
             request.write_uint16(len(payload.buffer))
             request.buffer.extend(payload.buffer)
             
-            # 发送请求
+            # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
                 self.change_result.delete('1.0', tk.END)
-                self.change_result.insert(tk.END, "请求超时\n")
-                self.log("请求超时")
+                self.change_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
                 return
             
-            # 解析响应
+            # Parse response
             response = ByteBuffer(response_data)
             resp_request_id = response.read_uint32()
             status = response.read_uint8()
@@ -408,131 +378,28 @@ class FacilityBookingGUI:
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
                 self.change_result.delete('1.0', tk.END)
-                self.change_result.insert(tk.END, f"修改失败: {error_msg}\n")
-                self.log(f"修改失败: {error_msg}")
+                self.change_result.insert(tk.END, f"Change failed: {error_msg}\n")
+                self.log(f"Change failed: {error_msg}")
                 return
             
             message = response.read_string()
             self.change_result.delete('1.0', tk.END)
             self.change_result.insert(tk.END, f"✓ {message}\n")
-            self.log("预订修改成功")
-            messagebox.showinfo("成功", message)
+            self.log("Booking changed successfully")
+            messagebox.showinfo("Success", message)
             
         except Exception as e:
-            messagebox.showerror("错误", f"修改失败: {str(e)}")
-            self.log(f"错误: {str(e)}")
-            
-    def monitor_facility_action(self):
-        """监控设施"""
-        facility_name = self.monitor_facility.get().strip()
-        duration_seconds = int(self.monitor_duration.get().strip())
-        
-        # 在新线程中运行监控
-        thread = threading.Thread(target=self._monitor_thread, 
-                                  args=(facility_name, duration_seconds))
-        thread.daemon = True
-        thread.start()
-        
-    def _monitor_thread(self, facility_name: str, duration_seconds: int):
-        """监控线程"""
-        try:
-            self.log(f"开始监控 {facility_name}，时长 {duration_seconds} 秒...")
-            
-            # 禁用监控按钮
-            self.monitor_button.config(state='disabled')
-            
-            # 构建请求
-            request = ByteBuffer()
-            request_id = self.network.get_next_request_id()
-            request.write_uint32(request_id)
-            request.write_uint8(MSG_MONITOR_FACILITY)
-            
-            payload = ByteBuffer()
-            payload.write_string(facility_name)
-            payload.write_uint32(duration_seconds)
-            
-            request.write_uint16(len(payload.buffer))
-            request.buffer.extend(payload.buffer)
-            
-            # 发送请求
-            response_data = self.network.send_request(request.get_data())
-            if not response_data:
-                self.log("监控注册失败：请求超时")
-                self.monitor_button.config(state='normal')
-                return
-            
-            # 解析响应
-            response = ByteBuffer(response_data)
-            resp_request_id = response.read_uint32()
-            status = response.read_uint8()
-            
-            if status == MSG_RESPONSE_ERROR:
-                error_msg = response.read_string()
-                self.log(f"监控注册失败: {error_msg}")
-                self.monitor_button.config(state='normal')
-                return
-            
-            message = response.read_string()
-            self.log(f"监控已注册: {message}")
-            
-            # 显示监控信息
-            self.monitor_result.delete('1.0', tk.END)
-            self.monitor_result.insert(tk.END, f"正在监控 {facility_name}...\n")
-            self.monitor_result.insert(tk.END, f"监控时长: {duration_seconds} 秒\n\n")
-            
-            # 监听更新
-            import time
-            start_time = time.time()
-            self.network.sock.settimeout(1.0)
-            
-            while time.time() - start_time < duration_seconds:
-                try:
-                    update_data, _ = self.network.sock.recvfrom(MAX_BUFFER_SIZE)
-                    
-                    # 解析更新
-                    update = ByteBuffer(update_data)
-                    update_status = update.read_uint8()
-                    
-                    if update_status == MSG_RESPONSE_SUCCESS:
-                        update_msg = update.read_string()
-                        num_slots = update.read_uint16()
-                        
-                        result = f"\n*** 更新: {update_msg} ***\n"
-                        result += f"可用时间段 ({num_slots}):\n"
-                        
-                        for i in range(num_slots):
-                            start_time_slot = update.read_time()
-                            end_time_slot = update.read_time()
-                            
-                            start_dt = datetime.fromtimestamp(start_time_slot)
-                            end_dt = datetime.fromtimestamp(end_time_slot)
-                            
-                            result += f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} 至 {end_dt.strftime('%H:%M')}\n"
-                        
-                        self.monitor_result.insert(tk.END, result)
-                        self.monitor_result.see(tk.END)
-                        self.log("收到监控更新")
-                    
-                except Exception:
-                    pass
-            
-            self.monitor_result.insert(tk.END, "\n监控期结束\n")
-            self.log("监控期结束")
-            self.network.sock.settimeout(TIMEOUT_SECONDS)
-            self.monitor_button.config(state='normal')
-            
-        except Exception as e:
-            self.log(f"监控错误: {str(e)}")
-            self.monitor_button.config(state='normal')
+            messagebox.showerror("Error", f"Change failed: {str(e)}")
+            self.log(f"Error: {str(e)}")
             
     def get_last_booking_time(self):
-        """获取最后预订时间"""
+        """Get last booking time"""
         try:
             facility_name = self.last_time_facility.get().strip()
             
-            self.log(f"查询 {facility_name} 最后预订时间...")
+            self.log(f"Querying {facility_name} last booking time...")
             
-            # 构建请求
+            # Build request
             request = ByteBuffer()
             request_id = self.network.get_next_request_id()
             request.write_uint32(request_id)
@@ -544,15 +411,15 @@ class FacilityBookingGUI:
             request.write_uint16(len(payload.buffer))
             request.buffer.extend(payload.buffer)
             
-            # 发送请求
+            # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
                 self.ops_result.delete('1.0', tk.END)
-                self.ops_result.insert(tk.END, "请求超时\n")
-                self.log("请求超时")
+                self.ops_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
                 return
             
-            # 解析响应
+            # Parse response
             response = ByteBuffer(response_data)
             resp_request_id = response.read_uint32()
             status = response.read_uint8()
@@ -560,38 +427,38 @@ class FacilityBookingGUI:
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
                 self.ops_result.delete('1.0', tk.END)
-                self.ops_result.insert(tk.END, f"错误: {error_msg}\n")
-                self.log(f"错误: {error_msg}")
+                self.ops_result.insert(tk.END, f"Error: {error_msg}\n")
+                self.log(f"Error: {error_msg}")
                 return
             
             last_time = response.read_time()
             message = response.read_string()
             
-            result_text = f"设施: {facility_name}\n"
+            result_text = f"Facility: {facility_name}\n"
             if last_time == 0:
                 result_text += f"{message}\n"
             else:
                 last_dt = datetime.fromtimestamp(last_time)
-                result_text += f"最后预订结束时间: {last_dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                result_text += f"状态: {message}\n"
+                result_text += f"Last booking end time: {last_dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                result_text += f"Status: {message}\n"
             
             self.ops_result.delete('1.0', tk.END)
             self.ops_result.insert(tk.END, result_text)
-            self.log("查询成功")
+            self.log("QueryingSuccess")
             
         except Exception as e:
-            messagebox.showerror("错误", f"查询失败: {str(e)}")
-            self.log(f"错误: {str(e)}")
+            messagebox.showerror("Error", f"Query failed: {str(e)}")
+            self.log(f"Error: {str(e)}")
             
     def extend_booking(self):
-        """延长预订"""
+        """Extend booking"""
         try:
             confirmation_id = int(self.extend_id.get().strip())
             minutes_to_extend = int(self.extend_minutes.get().strip())
             
-            self.log(f"延长预订 ID {confirmation_id}...")
+            self.log(f"Extend booking ID {confirmation_id}...")
             
-            # 构建请求
+            # Build request
             request = ByteBuffer()
             request_id = self.network.get_next_request_id()
             request.write_uint32(request_id)
@@ -604,15 +471,15 @@ class FacilityBookingGUI:
             request.write_uint16(len(payload.buffer))
             request.buffer.extend(payload.buffer)
             
-            # 发送请求
+            # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
                 self.ops_result.delete('1.0', tk.END)
-                self.ops_result.insert(tk.END, "请求超时\n")
-                self.log("请求超时")
+                self.ops_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
                 return
             
-            # 解析响应
+            # Parse response
             response = ByteBuffer(response_data)
             resp_request_id = response.read_uint32()
             status = response.read_uint8()
@@ -620,8 +487,8 @@ class FacilityBookingGUI:
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
                 self.ops_result.delete('1.0', tk.END)
-                self.ops_result.insert(tk.END, f"延长失败: {error_msg}\n")
-                self.log(f"延长失败: {error_msg}")
+                self.ops_result.insert(tk.END, f"Extension failed: {error_msg}\n")
+                self.log(f"Extension failed: {error_msg}")
                 return
             
             new_end_time = response.read_time()
@@ -629,27 +496,27 @@ class FacilityBookingGUI:
             
             new_end_dt = datetime.fromtimestamp(new_end_time)
             result_text = f"✓ {message}\n"
-            result_text += f"新结束时间: {new_end_dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            result_text += f"New end time: {new_end_dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
             
             self.ops_result.delete('1.0', tk.END)
             self.ops_result.insert(tk.END, result_text)
-            self.log("延长成功")
-            messagebox.showinfo("成功", message)
+            self.log("Extension successful")
+            messagebox.showinfo("Success", message)
             
         except Exception as e:
-            messagebox.showerror("错误", f"延长失败: {str(e)}")
-            self.log(f"错误: {str(e)}")
+            messagebox.showerror("Error", f"Extension failed: {str(e)}")
+            self.log(f"Error: {str(e)}")
             
     def run(self):
-        """运行GUI主循环"""
-        self.log("客户端已启动")
+        """Run GUI main loop"""
+        self.log("Client started")
         self.root.mainloop()
         self.network.close()
 
 
 def main():
     if len(sys.argv) != 3:
-        print(f"用法: {sys.argv[0]} <服务器IP> <服务器端口>")
+        print(f"Usage: {sys.argv[0]} <server_ip> <server_port>")
         sys.exit(1)
     
     server_ip = sys.argv[1]
