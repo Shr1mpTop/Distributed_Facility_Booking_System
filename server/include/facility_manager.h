@@ -7,9 +7,11 @@
 #define FACILITY_MANAGER_H
 
 #include "data_structures.h"
+#include "json_storage.h"
 #include <map>
 #include <string>
 #include <vector>
+#include <memory>
 
 class FacilityManager
 {
@@ -17,12 +19,17 @@ private:
     std::map<std::string, Facility> facilities;
     std::map<uint32_t, Booking> bookings_by_id;
     uint32_t next_booking_id;
+    std::unique_ptr<JsonStorage> storage;
 
 public:
     FacilityManager();
 
     // Initialize facilities
     void initialize();
+
+    // Persistence
+    void save_to_disk();
+    void load_from_disk();
 
     // Facility queries
     bool facility_exists(const std::string &name) const;

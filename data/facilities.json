@@ -1,0 +1,29 @@
+{
+  "Auditorium": {
+    "bookings": [],
+    "name": "Auditorium"
+  },
+  "Conference_Room_A": {
+    "bookings": [
+      {
+        "booking_id": 1,
+        "end_time": 1760149800,
+        "facility_name": "Conference_Room_A",
+        "start_time": 1760146200
+      }
+    ],
+    "name": "Conference_Room_A"
+  },
+  "Conference_Room_B": {
+    "bookings": [],
+    "name": "Conference_Room_B"
+  },
+  "Lab_101": {
+    "bookings": [],
+    "name": "Lab_101"
+  },
+  "Lab_102": {
+    "bookings": [],
+    "name": "Lab_102"
+  }
+}

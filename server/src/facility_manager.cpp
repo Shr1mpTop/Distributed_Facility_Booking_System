@@ -6,25 +6,63 @@
 #include <algorithm>
 #include <iostream>
 
-FacilityManager::FacilityManager() : next_booking_id(1) {}
+FacilityManager::FacilityManager()
+    : next_booking_id(1),
+      storage(std::make_unique<JsonStorage>("data"))
+{
+    // Initialize JSON storage
+    if (!storage->initialize())
+    {
+        std::cerr << "Warning: JSON storage initialization failed, data may not be persisted" << std::endl;
+    }
+}
 
 void FacilityManager::initialize()
 {
-    std::vector<std::string> facility_names = {
-        "Conference_Room_A",
-        "Conference_Room_B",
-        "Lab_101",
-        "Lab_102",
-        "Auditorium"};
+    // First try to load data from disk
+    load_from_disk();
 
-    for (const auto &name : facility_names)
+    // If no facilities were loaded, create default facilities
+    if (facilities.empty())
     {
-        Facility f;
-        f.name = name;
-        facilities[name] = f;
-    }
+        std::vector<std::string> facility_names = {
+            "Conference_Room_A",
+            "Conference_Room_B",
+            "Lab_101",
+            "Lab_102",
+            "Auditorium"};
 
-    std::cout << "Initialized " << facilities.size() << " facilities" << std::endl;
+        for (const auto &name : facility_names)
+        {
+            Facility f;
+            f.name = name;
+            facilities[name] = f;
+        }
+
+        std::cout << "Created " << facilities.size() << " default facilities" << std::endl;
+        save_to_disk(); // Save newly created facilities
+    }
+}
+
+void FacilityManager::save_to_disk()
+{
+    if (storage)
+    {
+        storage->save_facilities(facilities);
+        storage->save_bookings(bookings_by_id);
+    }
+}
+
+void FacilityManager::load_from_disk()
+{
+    if (storage)
+    {
+        storage->load_facilities(facilities);
+        storage->load_bookings(bookings_by_id);
+
+        // Get next booking ID
+        next_booking_id = storage->get_next_booking_id();
+    }
 }
 
 bool FacilityManager::facility_exists(const std::string &name) const
@@ -127,6 +165,9 @@ uint32_t FacilityManager::create_booking(const std::string &facility_name,
 
     std::cout << "Created booking ID: " << new_booking.booking_id << std::endl;
 
+    // Save to disk
+    save_to_disk();
+
     return new_booking.booking_id;
 }
 
@@ -171,6 +212,9 @@ bool FacilityManager::change_booking(uint32_t booking_id, int32_t offset_minutes
         }
     }
 
+    // Save to disk
+    save_to_disk();
+
     return true;
 }
 
@@ -211,6 +255,9 @@ bool FacilityManager::extend_booking(uint32_t booking_id, uint32_t minutes_to_ex
             break;
         }
     }
+
+    // Save to disk
+    save_to_disk();
 
     return true;
 }

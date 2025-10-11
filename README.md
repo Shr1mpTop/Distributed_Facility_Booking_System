@@ -31,8 +31,12 @@ Distributed_Facility_Booking_System/
 │   │   └── network_client.py    # 网络通信模块
 │   ├── cli/                     # 命令行界面客户端
 │   │   └── cli_client.py
-│   └── gui/                     # 图形界面客户端
-│       └── gui_client.py        # 使用tkinter的GUI客户端
+│   ├── gui/                     # 图形界面客户端
+│   │   └── gui_client.py        # 使用tkinter的GUI客户端
+│   └── monitor/                 # 独立监控客户端
+│       ├── monitor_client.py    # 独立的监控GUI应用
+│       ├── README.md           # 监控客户端文档
+│       └── CHANGES.md          # 变更说明
 │
 ├── bin/                         # 编译后的可执行文件
 │   └── server
@@ -63,6 +67,7 @@ Distributed_Facility_Booking_System/
 
 2. **CLI客户端 (cli/)**: 命令行文本界面
 3. **GUI客户端 (gui/)**: 图形用户界面（使用tkinter）
+4. **监控客户端 (monitor/)**: 独立的设施监控应用
 
 ### 核心功能
 
@@ -190,7 +195,55 @@ GUI客户端提供了友好的图形界面，包含以下功能标签页：
 - 实时显示所有操作日志
 - 带时间戳的消息记录
 
-## 📝 使用示例
+## � 独立监控客户端
+
+除了主GUI客户端，系统还提供了一个**独立的监控客户端**，专门用于实时监控设施可用性变化。
+
+### 特点
+
+- **独立窗口**: 与主GUI客户端分离的独立应用
+- **实时监控**: 持续查询设施可用性并自动检测变化
+- **变化检测**: 自动高亮显示可用性变化，并显示详细差异
+- **多实例支持**: 可同时运行多个监控客户端监控不同设施
+- **统计信息**: 显示检查次数、变化次数、当前可用时段数和运行时间
+- **彩色日志**: 不同类型消息使用不同颜色区分
+
+### 启动监控客户端
+
+```bash
+# 直接启动
+python3 client/monitor/monitor_client.py localhost 8080
+
+# 或使用Makefile
+make run-monitor
+
+# 启动多个监控实例（监控不同设施）
+python3 client/monitor/monitor_client.py localhost 8080  # 终端1
+python3 client/monitor/monitor_client.py localhost 8080  # 终端2
+```
+
+### 使用方法
+
+1. 选择要监控的设施
+2. 设置检查间隔（秒）
+3. 设置监控时长（0表示无限）
+4. 指定要监控的天数
+5. 点击"▶ Start Monitoring"开始监控
+6. 查看实时日志和统计信息
+
+### 监控输出示例
+
+```
+[10:15:23] Check #1 - No changes detected (27 slots available)
+[10:15:26] Check #2 - No changes detected (27 slots available)
+[10:15:29] Check #3 - 🔔 CHANGE DETECTED! Available slots changed from 27 to 26
+[10:15:29]   ↓ Removed: 1 slot(s)
+[10:15:29]     - 2025-10-11 14:00 to 15:00
+```
+
+详细文档请参阅 `client/monitor/README.md`
+
+## �📝 使用示例
 
 ### 示例1: 使用GUI查询和预订
 

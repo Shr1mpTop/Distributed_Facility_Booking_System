@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Facility Booking System - GUI Client
-使用tkinter创建图形界面客户端
+GUI client using tkinter
 """
 
 import tkinter as tk
@@ -21,51 +21,51 @@ from common.message_types import *
 
 
 class FacilityBookingGUI:
-    """GUI客户端主类"""
+    """Main GUI client class"""
     
     def __init__(self, server_ip: str, server_port: int):
         self.network = NetworkClient(server_ip, server_port)
         
-        # 创建主窗口
+        # Create main window
         self.root = tk.Tk()
-        self.root.title("设施预订系统 - 客户端")
+        self.root.title("Facility Booking System - Client")
         self.root.geometry("900x700")
         self.root.resizable(True, True)
         
-        # 设置样式
+        # Set style
         self.style = ttk.Style()
         self.style.theme_use('clam')
         
-        # 创建界面
+        # Create interface
         self.create_widgets()
         
     def create_widgets(self):
-        """创建所有GUI组件"""
+        """Create all GUI components"""
         
-        # 顶部信息栏
+        # Top info bar
         top_frame = ttk.Frame(self.root, padding="10")
         top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
-        ttk.Label(top_frame, text=f"服务器: {self.network.server_ip}:{self.network.server_port}", 
+        ttk.Label(top_frame, text=f"Server: {self.network.server_ip}:{self.network.server_port}", 
                  font=('Arial', 10, 'bold')).pack()
         
-        # 主容器
+        # Main container
         main_container = ttk.Notebook(self.root, padding="10")
         main_container.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=5)
         
-        # 配置行列权重
+        # Configure row and column weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
         
-        # 创建各个功能标签页
+        # Create functional tabs
         self.create_query_tab(main_container)
         self.create_book_tab(main_container)
         self.create_change_tab(main_container)
         self.create_monitor_tab(main_container)
         self.create_operations_tab(main_container)
         
-        # 底部日志区域
-        log_frame = ttk.LabelFrame(self.root, text="日志", padding="5")
+        # Bottom log area
+        log_frame = ttk.LabelFrame(self.root, text="Log", padding="5")
         log_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.S), padx=10, pady=5)
         
         self.log_text = scrolledtext.ScrolledText(log_frame, height=8, state='disabled')
@@ -74,167 +74,167 @@ class FacilityBookingGUI:
         self.root.rowconfigure(2, weight=1)
         
     def create_query_tab(self, notebook):
-        """创建查询可用性标签页"""
+        """Create query availability tab"""
         frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="查询可用性")
+        notebook.add(frame, text="Query Availability")
         
-        # 设施名称
-        ttk.Label(frame, text="设施名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        # Facility name
+        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.query_facility = ttk.Combobox(frame, width=30)
         self.query_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
                                          'Lab_101', 'Lab_102', 'Auditorium')
         self.query_facility.grid(row=0, column=1, pady=5, padx=5)
         self.query_facility.current(0)
         
-        # 查询天数
-        ttk.Label(frame, text="查询天数 (逗号分隔, 0=今天):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        # Query days
+        ttk.Label(frame, text="Query Days (comma separated, 0=today):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.query_days = ttk.Entry(frame, width=32)
         self.query_days.insert(0, "0,1,2")
         self.query_days.grid(row=1, column=1, pady=5, padx=5)
         
-        # 查询按钮
-        ttk.Button(frame, text="查询", command=self.query_availability, 
+        # Query button
+        ttk.Button(frame, text="Query", command=self.query_availability, 
                   style='Accent.TButton').grid(row=2, column=0, columnspan=2, pady=10)
         
-        # 结果显示
-        ttk.Label(frame, text="可用时间段:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        # Results display
+        ttk.Label(frame, text="Available Time Slots:").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.query_result = scrolledtext.ScrolledText(frame, height=15, width=70)
         self.query_result.grid(row=4, column=0, columnspan=2, pady=5)
         
     def create_book_tab(self, notebook):
-        """创建预订标签页"""
+        """Create booking tab"""
         frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="预订设施")
+        notebook.add(frame, text="Book Facility")
         
-        # 设施名称
-        ttk.Label(frame, text="设施名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        # Facility name
+        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.book_facility = ttk.Combobox(frame, width=30)
         self.book_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
                                         'Lab_101', 'Lab_102', 'Auditorium')
         self.book_facility.grid(row=0, column=1, pady=5, padx=5)
         self.book_facility.current(0)
         
-        # 日期
-        ttk.Label(frame, text="日期 (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        # Date
+        ttk.Label(frame, text="Date (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.book_date = ttk.Entry(frame, width=32)
         self.book_date.insert(0, datetime.now().strftime('%Y-%m-%d'))
         self.book_date.grid(row=1, column=1, pady=5, padx=5)
         
-        # 时间
-        ttk.Label(frame, text="开始时间 (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=5)
+        # Time
+        ttk.Label(frame, text="Start Time (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=5)
         self.book_time = ttk.Entry(frame, width=32)
         self.book_time.insert(0, "09:00")
         self.book_time.grid(row=2, column=1, pady=5, padx=5)
         
-        # 时长
-        ttk.Label(frame, text="时长 (小时):").grid(row=3, column=0, sticky=tk.W, pady=5)
+        # Duration
+        ttk.Label(frame, text="Duration (hours):").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.book_duration = ttk.Entry(frame, width=32)
         self.book_duration.insert(0, "1")
         self.book_duration.grid(row=3, column=1, pady=5, padx=5)
         
-        # 预订按钮
-        ttk.Button(frame, text="预订", command=self.book_facility_action,
+        # Book button
+        ttk.Button(frame, text="Book", command=self.book_facility_action,
                   style='Accent.TButton').grid(row=4, column=0, columnspan=2, pady=10)
         
-        # 结果显示
+        # Results display
         self.book_result = scrolledtext.ScrolledText(frame, height=10, width=70)
         self.book_result.grid(row=5, column=0, columnspan=2, pady=5)
         
     def create_change_tab(self, notebook):
-        """创建修改预订标签页"""
+        """Create change booking tab"""
         frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="修改预订")
+        notebook.add(frame, text="Change Booking")
         
-        # 确认ID
-        ttk.Label(frame, text="确认ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        # Confirmation ID
+        ttk.Label(frame, text="Confirmation ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.change_id = ttk.Entry(frame, width=32)
         self.change_id.grid(row=0, column=1, pady=5, padx=5)
         
-        # 时间偏移
-        ttk.Label(frame, text="时间偏移 (分钟):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        # Time offset
+        ttk.Label(frame, text="Time Offset (minutes):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.change_offset = ttk.Entry(frame, width=32)
         self.change_offset.insert(0, "30")
         self.change_offset.grid(row=1, column=1, pady=5, padx=5)
         
-        ttk.Label(frame, text="(正数表示延后，负数表示提前)", 
+        ttk.Label(frame, text="(Positive for later, negative for earlier)", 
                  font=('Arial', 9, 'italic')).grid(row=2, column=1, sticky=tk.W)
         
-        # 修改按钮
-        ttk.Button(frame, text="修改预订", command=self.change_booking,
+        # Change button
+        ttk.Button(frame, text="Change Booking", command=self.change_booking,
                   style='Accent.TButton').grid(row=3, column=0, columnspan=2, pady=10)
         
-        # 结果显示
+        # Results display
         self.change_result = scrolledtext.ScrolledText(frame, height=10, width=70)
         self.change_result.grid(row=4, column=0, columnspan=2, pady=5)
         
     def create_monitor_tab(self, notebook):
-        """创建监控标签页"""
+        """Create monitor tab"""
         frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="监控设施")
+        notebook.add(frame, text="Monitor Facility")
         
-        # 设施名称
-        ttk.Label(frame, text="设施名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        # Facility name
+        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.monitor_facility = ttk.Combobox(frame, width=30)
         self.monitor_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
                                            'Lab_101', 'Lab_102', 'Auditorium')
         self.monitor_facility.grid(row=0, column=1, pady=5, padx=5)
         self.monitor_facility.current(0)
         
-        # 监控时长
-        ttk.Label(frame, text="监控时长 (秒):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        # Monitor duration
+        ttk.Label(frame, text="Monitor Duration (seconds):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.monitor_duration = ttk.Entry(frame, width=32)
         self.monitor_duration.insert(0, "60")
         self.monitor_duration.grid(row=1, column=1, pady=5, padx=5)
         
-        # 监控按钮
-        self.monitor_button = ttk.Button(frame, text="开始监控", 
+        # Monitor button
+        self.monitor_button = ttk.Button(frame, text="Start Monitoring", 
                                         command=self.monitor_facility_action)
         self.monitor_button.grid(row=2, column=0, columnspan=2, pady=10)
         
-        # 结果显示
-        ttk.Label(frame, text="监控更新:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        # Results display
+        ttk.Label(frame, text="Monitor Updates:").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.monitor_result = scrolledtext.ScrolledText(frame, height=15, width=70)
         self.monitor_result.grid(row=4, column=0, columnspan=2, pady=5)
         
     def create_operations_tab(self, notebook):
-        """创建其他操作标签页"""
+        """Create operations tab"""
         frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="其他操作")
+        notebook.add(frame, text="Operations")
         
-        # 获取最后预订时间
-        group1 = ttk.LabelFrame(frame, text="获取最后预订时间 (幂等操作)", padding="10")
+        # Get last booking time
+        group1 = ttk.LabelFrame(frame, text="Get Last Booking Time (Idempotent Operation)", padding="10")
         group1.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=10)
         
-        ttk.Label(group1, text="设施名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(group1, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.last_time_facility = ttk.Combobox(group1, width=25)
         self.last_time_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
                                              'Lab_101', 'Lab_102', 'Auditorium')
         self.last_time_facility.grid(row=0, column=1, pady=5, padx=5)
         self.last_time_facility.current(0)
         
-        ttk.Button(group1, text="查询", command=self.get_last_booking_time).grid(row=1, column=0, columnspan=2, pady=5)
+        ttk.Button(group1, text="Query", command=self.get_last_booking_time).grid(row=1, column=0, columnspan=2, pady=5)
         
-        # 延长预订
-        group2 = ttk.LabelFrame(frame, text="延长预订 (非幂等操作)", padding="10")
+        # Extend booking
+        group2 = ttk.LabelFrame(frame, text="Extend Booking (Non-Idempotent Operation)", padding="10")
         group2.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=10)
         
-        ttk.Label(group2, text="确认ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(group2, text="Confirmation ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.extend_id = ttk.Entry(group2, width=27)
         self.extend_id.grid(row=0, column=1, pady=5, padx=5)
         
-        ttk.Label(group2, text="延长时间 (分钟):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(group2, text="Extension Time (minutes):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.extend_minutes = ttk.Entry(group2, width=27)
         self.extend_minutes.insert(0, "30")
         self.extend_minutes.grid(row=1, column=1, pady=5, padx=5)
         
-        ttk.Button(group2, text="延长", command=self.extend_booking).grid(row=2, column=0, columnspan=2, pady=5)
+        ttk.Button(group2, text="Extend", command=self.extend_booking).grid(row=2, column=0, columnspan=2, pady=5)
         
-        # 结果显示
+        # Results display
         self.ops_result = scrolledtext.ScrolledText(frame, height=12, width=70)
         self.ops_result.grid(row=2, column=0, pady=10)
         
     def log(self, message: str):
-        """添加日志消息"""
+        """Add log message"""
         self.log_text.config(state='normal')
         timestamp = datetime.now().strftime('%H:%M:%S')
         self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
@@ -242,15 +242,15 @@ class FacilityBookingGUI:
         self.log_text.config(state='disabled')
         
     def query_availability(self):
-        """查询可用性"""
+        """Query availability"""
         try:
             facility_name = self.query_facility.get().strip()
             days_input = self.query_days.get().strip()
             days = [int(d.strip()) for d in days_input.split(',')]
             
-            self.log(f"查询 {facility_name} 的可用性...")
+            self.log(f"Querying availability for {facility_name}...")
             
-            # 构建请求
+            # Build request
             request = ByteBuffer()
             request_id = self.network.get_next_request_id()
             request.write_uint32(request_id)
@@ -265,15 +265,15 @@ class FacilityBookingGUI:
             request.write_uint16(len(payload.buffer))
             request.buffer.extend(payload.buffer)
             
-            # 发送请求
+            # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
                 self.query_result.delete('1.0', tk.END)
-                self.query_result.insert(tk.END, "请求超时\n")
-                self.log("请求超时")
+                self.query_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
                 return
             
-            # 解析响应
+            # Parse response
             response = ByteBuffer(response_data)
             resp_request_id = response.read_uint32()
             status = response.read_uint8()
@@ -281,13 +281,13 @@ class FacilityBookingGUI:
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
                 self.query_result.delete('1.0', tk.END)
-                self.query_result.insert(tk.END, f"错误: {error_msg}\n")
-                self.log(f"错误: {error_msg}")
+                self.query_result.insert(tk.END, f"Error: {error_msg}\n")
+                self.log(f"Error: {error_msg}")
                 return
             
-            # 读取可用时间段
+            # Read available time slots
             num_slots = response.read_uint16()
-            result_text = f"找到 {num_slots} 个可用时间段:\n\n"
+            result_text = f"Found {num_slots} available time slots:\n\n"
             
             for i in range(num_slots):
                 start_time = response.read_time()

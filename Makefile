@@ -10,7 +10,8 @@ SRCS = $(SRC_DIR)/main.cpp \
        $(SRC_DIR)/facility_manager.cpp \
        $(SRC_DIR)/monitor_manager.cpp \
        $(SRC_DIR)/request_handlers.cpp \
-       $(SRC_DIR)/udp_server.cpp
+       $(SRC_DIR)/udp_server.cpp \
+       $(SRC_DIR)/json_storage.cpp
 
 TARGET = bin/server
 
@@ -40,4 +41,7 @@ run-gui:
 run-cli:
 	python3 client/cli/cli_client.py localhost 8080
 
-.PHONY: all debug clean run run-at-most-once run-gui run-cli
+run-monitor:
+	python3 client/monitor/monitor_client.py localhost 8080
+
+.PHONY: all debug clean run run-at-most-once run-gui run-cli run-monitor
