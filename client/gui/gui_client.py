@@ -40,168 +40,203 @@ class FacilityBookingGUI:
         self.create_widgets()
         
     def create_widgets(self):
-        """Create all GUI components"""
-        
-        # Top info bar
-        top_frame = ttk.Frame(self.root, padding="10")
-        top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        
-        ttk.Label(top_frame, text=f"Server: {self.network.server_ip}:{self.network.server_port}", 
-                 font=('Arial', 10, 'bold')).pack()
-        
-        # Main container
-        main_container = ttk.Notebook(self.root, padding="10")
-        main_container.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=5)
-        
-        # Configure row and column weights
-        self.root.columnconfigure(0, weight=1)
+        """Create all GUI components with a modern, academic, React-like style"""
+        self.root.configure(bg="#f7f7fa")
+        # Top bar
+        top_bar = tk.Frame(self.root, bg="#22223b", height=56)
+        top_bar.grid(row=0, column=0, sticky="nsew")
+        top_bar.grid_propagate(False)
+        tk.Label(top_bar, text="Facility Booking System", fg="#fff", bg="#22223b", font=("Segoe UI", 18, "bold"), anchor="w").pack(side=tk.LEFT, padx=24, pady=8)
+        tk.Label(top_bar, text=f"Server: {self.network.server_ip}:{self.network.server_port}", fg="#c9ada7", bg="#22223b", font=("Segoe UI", 11), anchor="e").pack(side=tk.RIGHT, padx=24)
+
+        # Main content area
+        main_frame = tk.Frame(self.root, bg="#f7f7fa")
+        main_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=(0,0))
         self.root.rowconfigure(1, weight=1)
+        self.root.columnconfigure(0, weight=1)
+
+        # Left navigation (vertical tabs)
+        nav_frame = tk.Frame(main_frame, bg="#f7f7fa", width=180)
+        nav_frame.grid(row=0, column=0, sticky="nsw")
+        nav_frame.grid_propagate(False)
+        nav_btn_style = {"font": ("Segoe UI", 12), "bg": "#f7f7fa", "fg": "#22223b", "activebackground": "#e0e1dd", "bd": 0, "relief": "flat", "anchor": "w", "padx": 18, "pady": 12}
+        self.active_tab = tk.StringVar(value="Query")
+        tabs = [
+            ("Query", "Query Availability"),
+            ("Book", "Book Facility"),
+            ("Change", "Change Booking"),
+            ("Ops", "Operations")
+        ]
+        for i, (key, label) in enumerate(tabs):
+            b = tk.Radiobutton(nav_frame, text=label, variable=self.active_tab, value=key, indicatoron=0, **nav_btn_style, selectcolor="#4a4e69")
+            b.grid(row=i, column=0, sticky="ew")
+
+        # Content area
+        content_frame = tk.Frame(main_frame, bg="#fff", bd=0, highlightbackground="#e0e1dd", highlightthickness=1)
+        content_frame.grid(row=0, column=1, sticky="nsew", padx=(0,0), pady=(0,0))
+        main_frame.columnconfigure(1, weight=1)
+        main_frame.rowconfigure(0, weight=1)
+
+        # Section frames
+        self.section_frames = {}
+        for key in ["Query", "Book", "Change", "Ops"]:
+            f = tk.Frame(content_frame, bg="#fff")
+            f.grid(row=0, column=0, sticky="nsew")
+            self.section_frames[key] = f
+        self.create_query_tab(self.section_frames["Query"])
+        self.create_book_tab(self.section_frames["Book"])
+        self.create_change_tab(self.section_frames["Change"])
+        self.create_operations_tab(self.section_frames["Ops"])
+        self.show_section("Query")
+        self.active_tab.trace_add("write", lambda *_: self.show_section(self.active_tab.get()))
+
+        # Log area (bottom, always visible)
+        log_frame = tk.Frame(self.root, bg="#22223b", height=120)
+        log_frame.grid(row=2, column=0, sticky="ew")
+        log_frame.grid_propagate(False)
+        tk.Label(log_frame, text="Log", fg="#fff", bg="#22223b", font=("Segoe UI", 11, "bold"), anchor="w").pack(side=tk.TOP, anchor="w", padx=16, pady=(8,0))
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=5, state='disabled', bg="#23243a", fg="#e0e1dd", font=("Consolas", 10), borderwidth=0, highlightthickness=0)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=16, pady=(0,12))
+        self.root.rowconfigure(2, minsize=120)
+
+    def show_section(self, key):
+        for k, f in self.section_frames.items():
+            if k == key:
+                f.tkraise()
+            else:
+                f.lower()
         
-        # Create functional tabs
-        self.create_query_tab(main_container)
-        self.create_book_tab(main_container)
-        self.create_change_tab(main_container)
-        self.create_operations_tab(main_container)
-        
-        # Bottom log area
-        log_frame = ttk.LabelFrame(self.root, text="Log", padding="5")
-        log_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.S), padx=10, pady=5)
-        
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, state='disabled')
-        self.log_text.pack(fill=tk.BOTH, expand=True)
-        
-        self.root.rowconfigure(2, weight=1)
-        
-    def create_query_tab(self, notebook):
-        """Create query availability tab"""
-        frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="Query Availability")
-        
+    def create_query_tab(self, parent):
+        """Modern query availability section"""
+        frame = parent
+        # Title
+        tk.Label(frame, text="Query Facility Availability", font=("Segoe UI", 15, "bold"), bg="#fff", fg="#22223b").grid(row=0, column=0, columnspan=2, sticky="w", pady=(18,8), padx=24)
         # Facility name
-        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.query_facility = ttk.Combobox(frame, width=30)
-        self.query_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
-                                         'Lab_101', 'Lab_102', 'Auditorium')
-        self.query_facility.grid(row=0, column=1, pady=5, padx=5)
+        tk.Label(frame, text="Facility Name:", font=("Segoe UI", 11), bg="#fff").grid(row=1, column=0, sticky="e", pady=6, padx=(24,8))
+        self.query_facility = ttk.Combobox(frame, width=28, font=("Segoe UI", 11))
+        self.query_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium')
+        self.query_facility.grid(row=1, column=1, pady=6, sticky="w")
         self.query_facility.current(0)
-        
         # Query days
-        ttk.Label(frame, text="Query Days (comma separated, 0=today):").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.query_days = ttk.Entry(frame, width=32)
+        tk.Label(frame, text="Query Days (comma separated, 0=today):", font=("Segoe UI", 11), bg="#fff").grid(row=2, column=0, sticky="e", pady=6, padx=(24,8))
+        self.query_days = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.query_days.insert(0, "0,1,2")
-        self.query_days.grid(row=1, column=1, pady=5, padx=5)
-        
+        self.query_days.grid(row=2, column=1, pady=6, sticky="w")
         # Query button
-        ttk.Button(frame, text="Query", command=self.query_availability, 
-                  style='Accent.TButton').grid(row=2, column=0, columnspan=2, pady=10)
-        
+        tk.Button(frame, text="Query", command=self.query_availability, font=("Segoe UI", 11, "bold"), bg="#4a4e69", fg="#fff", activebackground="#9a8c98", activeforeground="#fff", relief="flat", padx=18, pady=6).grid(row=3, column=0, columnspan=2, pady=16)
         # Results display
-        ttk.Label(frame, text="Available Time Slots:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.query_result = scrolledtext.ScrolledText(frame, height=15, width=70)
-        self.query_result.grid(row=4, column=0, columnspan=2, pady=5)
+        tk.Label(frame, text="Available Time Slots:", font=("Segoe UI", 11, "bold"), bg="#fff").grid(row=4, column=0, sticky="nw", padx=(24,8), pady=(8,0))
+        self.query_result = scrolledtext.ScrolledText(frame, height=10, width=60, font=("Consolas", 10), bg="#f7f7fa", fg="#22223b", borderwidth=0, highlightthickness=1, highlightbackground="#e0e1dd")
+        self.query_result.grid(row=5, column=0, columnspan=2, padx=24, pady=(0,18), sticky="ew")
+        frame.columnconfigure(1, weight=1)
         
-    def create_book_tab(self, notebook):
-        """Create booking tab"""
-        frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="Book Facility")
+    def create_book_tab(self, parent):
+        """Modern booking section"""
+        frame = parent
+        # Title
+        tk.Label(frame, text="Book Facility", font=("Segoe UI", 15, "bold"), bg="#fff", fg="#22223b").grid(row=0, column=0, columnspan=2, sticky="w", pady=(18,8), padx=24)
         
         # Facility name
-        ttk.Label(frame, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.book_facility = ttk.Combobox(frame, width=30)
-        self.book_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
-                                        'Lab_101', 'Lab_102', 'Auditorium')
-        self.book_facility.grid(row=0, column=1, pady=5, padx=5)
+        tk.Label(frame, text="Facility Name:", font=("Segoe UI", 11), bg="#fff").grid(row=1, column=0, sticky="e", pady=6, padx=(24,8))
+        self.book_facility = ttk.Combobox(frame, width=28, font=("Segoe UI", 11))
+        self.book_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium')
+        self.book_facility.grid(row=1, column=1, pady=6, sticky="w")
         self.book_facility.current(0)
         
         # Date
-        ttk.Label(frame, text="Date (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.book_date = ttk.Entry(frame, width=32)
+        tk.Label(frame, text="Date (YYYY-MM-DD):", font=("Segoe UI", 11), bg="#fff").grid(row=2, column=0, sticky="e", pady=6, padx=(24,8))
+        self.book_date = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.book_date.insert(0, datetime.now().strftime('%Y-%m-%d'))
-        self.book_date.grid(row=1, column=1, pady=5, padx=5)
+        self.book_date.grid(row=2, column=1, pady=6, sticky="w")
         
         # Time
-        ttk.Label(frame, text="Start Time (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.book_time = ttk.Entry(frame, width=32)
+        tk.Label(frame, text="Start Time (HH:MM):", font=("Segoe UI", 11), bg="#fff").grid(row=3, column=0, sticky="e", pady=6, padx=(24,8))
+        self.book_time = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.book_time.insert(0, "09:00")
-        self.book_time.grid(row=2, column=1, pady=5, padx=5)
+        self.book_time.grid(row=3, column=1, pady=6, sticky="w")
         
         # Duration
-        ttk.Label(frame, text="Duration (hours):").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.book_duration = ttk.Entry(frame, width=32)
+        tk.Label(frame, text="Duration (hours):", font=("Segoe UI", 11), bg="#fff").grid(row=4, column=0, sticky="e", pady=6, padx=(24,8))
+        self.book_duration = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.book_duration.insert(0, "1")
-        self.book_duration.grid(row=3, column=1, pady=5, padx=5)
+        self.book_duration.grid(row=4, column=1, pady=6, sticky="w")
         
         # Book button
-        ttk.Button(frame, text="Book", command=self.book_facility_action,
-                  style='Accent.TButton').grid(row=4, column=0, columnspan=2, pady=10)
+        tk.Button(frame, text="Book Facility", command=self.book_facility_action, font=("Segoe UI", 11, "bold"), bg="#4a4e69", fg="#fff", activebackground="#9a8c98", activeforeground="#fff", relief="flat", padx=18, pady=6).grid(row=5, column=0, columnspan=2, pady=16)
         
         # Results display
-        self.book_result = scrolledtext.ScrolledText(frame, height=10, width=70)
-        self.book_result.grid(row=5, column=0, columnspan=2, pady=5)
+        tk.Label(frame, text="Booking Result:", font=("Segoe UI", 11, "bold"), bg="#fff").grid(row=6, column=0, sticky="nw", padx=(24,8), pady=(8,0))
+        self.book_result = scrolledtext.ScrolledText(frame, height=8, width=60, font=("Consolas", 10), bg="#f7f7fa", fg="#22223b", borderwidth=0, highlightthickness=1, highlightbackground="#e0e1dd")
+        self.book_result.grid(row=7, column=0, columnspan=2, padx=24, pady=(0,18), sticky="ew")
+        frame.columnconfigure(1, weight=1)
         
-    def create_change_tab(self, notebook):
-        """Create change booking tab"""
-        frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="Change Booking")
+    def create_change_tab(self, parent):
+        """Modern change booking section"""
+        frame = parent
+        # Title
+        tk.Label(frame, text="Change Booking", font=("Segoe UI", 15, "bold"), bg="#fff", fg="#22223b").grid(row=0, column=0, columnspan=2, sticky="w", pady=(18,8), padx=24)
         
         # Confirmation ID
-        ttk.Label(frame, text="Confirmation ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.change_id = ttk.Entry(frame, width=32)
-        self.change_id.grid(row=0, column=1, pady=5, padx=5)
+        tk.Label(frame, text="Confirmation ID:", font=("Segoe UI", 11), bg="#fff").grid(row=1, column=0, sticky="e", pady=6, padx=(24,8))
+        self.change_id = tk.Entry(frame, width=30, font=("Segoe UI", 11))
+        self.change_id.grid(row=1, column=1, pady=6, sticky="w")
         
         # Time offset
-        ttk.Label(frame, text="Time Offset (minutes):").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.change_offset = ttk.Entry(frame, width=32)
+        tk.Label(frame, text="Time Offset (minutes):", font=("Segoe UI", 11), bg="#fff").grid(row=2, column=0, sticky="e", pady=6, padx=(24,8))
+        self.change_offset = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.change_offset.insert(0, "30")
-        self.change_offset.grid(row=1, column=1, pady=5, padx=5)
+        self.change_offset.grid(row=2, column=1, pady=6, sticky="w")
         
-        ttk.Label(frame, text="(Positive for later, negative for earlier)", 
-                 font=('Arial', 9, 'italic')).grid(row=2, column=1, sticky=tk.W)
+        tk.Label(frame, text="(Positive for later, negative for earlier)", font=("Segoe UI", 9, "italic"), bg="#fff", fg="#666").grid(row=3, column=1, sticky="w", padx=0)
         
         # Change button
-        ttk.Button(frame, text="Change Booking", command=self.change_booking,
-                  style='Accent.TButton').grid(row=3, column=0, columnspan=2, pady=10)
+        tk.Button(frame, text="Change Booking", command=self.change_booking, font=("Segoe UI", 11, "bold"), bg="#4a4e69", fg="#fff", activebackground="#9a8c98", activeforeground="#fff", relief="flat", padx=18, pady=6).grid(row=4, column=0, columnspan=2, pady=16)
         
         # Results display
-        self.change_result = scrolledtext.ScrolledText(frame, height=10, width=70)
-        self.change_result.grid(row=4, column=0, columnspan=2, pady=5)
+        tk.Label(frame, text="Change Result:", font=("Segoe UI", 11, "bold"), bg="#fff").grid(row=5, column=0, sticky="nw", padx=(24,8), pady=(8,0))
+        self.change_result = scrolledtext.ScrolledText(frame, height=8, width=60, font=("Consolas", 10), bg="#f7f7fa", fg="#22223b", borderwidth=0, highlightthickness=1, highlightbackground="#e0e1dd")
+        self.change_result.grid(row=6, column=0, columnspan=2, padx=24, pady=(0,18), sticky="ew")
+        frame.columnconfigure(1, weight=1)
         
-    def create_operations_tab(self, notebook):
-        """Create operations tab"""
-        frame = ttk.Frame(notebook, padding="10")
-        notebook.add(frame, text="Operations")
+    def create_operations_tab(self, parent):
+        """Modern operations section"""
+        frame = parent
+        # Title
+        tk.Label(frame, text="Additional Operations", font=("Segoe UI", 15, "bold"), bg="#fff", fg="#22223b").grid(row=0, column=0, columnspan=2, sticky="w", pady=(18,8), padx=24)
         
-        # Get last booking time
-        group1 = ttk.LabelFrame(frame, text="Get Last Booking Time (Idempotent Operation)", padding="10")
-        group1.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=10)
+        # Get last booking time section
+        tk.Label(frame, text="Get Last Booking Time (Idempotent)", font=("Segoe UI", 12, "bold"), bg="#fff", fg="#4a4e69").grid(row=1, column=0, columnspan=2, sticky="w", pady=(12,6), padx=24)
         
-        ttk.Label(group1, text="Facility Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.last_time_facility = ttk.Combobox(group1, width=25)
-        self.last_time_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 
-                                             'Lab_101', 'Lab_102', 'Auditorium')
-        self.last_time_facility.grid(row=0, column=1, pady=5, padx=5)
+        tk.Label(frame, text="Facility Name:", font=("Segoe UI", 11), bg="#fff").grid(row=2, column=0, sticky="e", pady=6, padx=(24,8))
+        self.last_time_facility = ttk.Combobox(frame, width=28, font=("Segoe UI", 11))
+        self.last_time_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium')
+        self.last_time_facility.grid(row=2, column=1, pady=6, sticky="w")
         self.last_time_facility.current(0)
         
-        ttk.Button(group1, text="Query", command=self.get_last_booking_time).grid(row=1, column=0, columnspan=2, pady=5)
+        tk.Button(frame, text="Query Last Booking Time", command=self.get_last_booking_time, font=("Segoe UI", 10, "bold"), bg="#6c757d", fg="#fff", activebackground="#9a8c98", activeforeground="#fff", relief="flat", padx=14, pady=4).grid(row=3, column=0, columnspan=2, pady=10)
         
-        # Extend booking
-        group2 = ttk.LabelFrame(frame, text="Extend Booking (Non-Idempotent Operation)", padding="10")
-        group2.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=10)
+        # Separator
+        ttk.Separator(frame, orient='horizontal').grid(row=4, column=0, columnspan=2, sticky="ew", padx=24, pady=12)
         
-        ttk.Label(group2, text="Confirmation ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.extend_id = ttk.Entry(group2, width=27)
-        self.extend_id.grid(row=0, column=1, pady=5, padx=5)
+        # Extend booking section
+        tk.Label(frame, text="Extend Booking (Non-Idempotent)", font=("Segoe UI", 12, "bold"), bg="#fff", fg="#4a4e69").grid(row=5, column=0, columnspan=2, sticky="w", pady=(6,6), padx=24)
         
-        ttk.Label(group2, text="Extension Time (minutes):").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.extend_minutes = ttk.Entry(group2, width=27)
+        tk.Label(frame, text="Confirmation ID:", font=("Segoe UI", 11), bg="#fff").grid(row=6, column=0, sticky="e", pady=6, padx=(24,8))
+        self.extend_id = tk.Entry(frame, width=30, font=("Segoe UI", 11))
+        self.extend_id.grid(row=6, column=1, pady=6, sticky="w")
+        
+        tk.Label(frame, text="Extension Time (minutes):", font=("Segoe UI", 11), bg="#fff").grid(row=7, column=0, sticky="e", pady=6, padx=(24,8))
+        self.extend_minutes = tk.Entry(frame, width=30, font=("Segoe UI", 11))
         self.extend_minutes.insert(0, "30")
-        self.extend_minutes.grid(row=1, column=1, pady=5, padx=5)
+        self.extend_minutes.grid(row=7, column=1, pady=6, sticky="w")
         
-        ttk.Button(group2, text="Extend", command=self.extend_booking).grid(row=2, column=0, columnspan=2, pady=5)
+        tk.Button(frame, text="Extend Booking", command=self.extend_booking, font=("Segoe UI", 10, "bold"), bg="#6c757d", fg="#fff", activebackground="#9a8c98", activeforeground="#fff", relief="flat", padx=14, pady=4).grid(row=8, column=0, columnspan=2, pady=10)
         
         # Results display
-        self.ops_result = scrolledtext.ScrolledText(frame, height=12, width=70)
-        self.ops_result.grid(row=2, column=0, pady=10)
+        tk.Label(frame, text="Operation Result:", font=("Segoe UI", 11, "bold"), bg="#fff").grid(row=9, column=0, sticky="nw", padx=(24,8), pady=(8,0))
+        self.ops_result = scrolledtext.ScrolledText(frame, height=8, width=60, font=("Consolas", 10), bg="#f7f7fa", fg="#22223b", borderwidth=0, highlightthickness=1, highlightbackground="#e0e1dd")
+        self.ops_result.grid(row=10, column=0, columnspan=2, padx=24, pady=(0,18), sticky="ew")
+        frame.columnconfigure(1, weight=1)
         
     def log(self, message: str):
         """Add log message"""
