@@ -2,7 +2,7 @@
 
 一个基于UDP通信的分布式客户端-服务器应用，用于管理设施预订。系统包含模块化的C++服务器和Python客户端（支持CLI和GUI两种界面）。
 
-## 📁 项目结构1
+## 📁 项目结构
 
 ```
 Distributed_Facility_Booking_System/
