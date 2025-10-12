@@ -1,7 +1,7 @@
 # Makefile for Distributed Facility Booking System - Modular Version
 
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -pthread
 INCLUDES = -I server/include
 
 SRC_DIR = server/src
