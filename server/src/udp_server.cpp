@@ -1,5 +1,5 @@
 /**
- * UDP Server Implementation
+ * UDP Server Implementation with Multi-threading Support
  */
 
 #include "../include/udp_server.h"
@@ -9,17 +9,41 @@
 #include <unistd.h>
 #include <iostream>
 #include <cstring>
+#include <chrono>
 
-UDPServer::UDPServer(int port, bool at_most_once)
+UDPServer::UDPServer(int port, bool at_most_once, size_t thread_count)
     : port(port), sockfd(-1), use_at_most_once(at_most_once),
-      handlers(facility_manager, monitor_manager) {
+      num_threads(thread_count), shutdown_flag(false),
+      total_requests(0), processed_requests(0), cached_responses(0) {
+    
     facility_manager.initialize();
+    
+    std::cout << "Initializing server with " << num_threads << " worker threads" << std::endl;
+    
+    // Create worker threads
+    for (size_t i = 0; i < num_threads; ++i) {
+        worker_threads.emplace_back(&UDPServer::worker_thread_func, this);
+    }
 }
 
 UDPServer::~UDPServer() {
+    // Signal all threads to stop
+    shutdown_flag = true;
+    queue_cv.notify_all();
+    
+    // Wait for all threads to finish
+    for (auto& thread : worker_threads) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    
     if (sockfd >= 0) {
         close(sockfd);
     }
+    
+    std::cout << "\nServer shutdown complete." << std::endl;
+    print_statistics();
 }
 
 bool UDPServer::initialize_socket() {
@@ -45,11 +69,14 @@ bool UDPServer::initialize_socket() {
 
 bool UDPServer::check_cache(const ClientAddr& client_key, uint32_t request_id,
                             std::vector<uint8_t>& cached_response) {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    
     auto client_it = response_cache.find(client_key);
     if (client_it != response_cache.end()) {
         auto request_it = client_it->second.find(request_id);
         if (request_it != client_it->second.end()) {
             cached_response = request_it->second.response_data;
+            cached_responses++;
             return true;
         }
     }
@@ -58,11 +85,41 @@ bool UDPServer::check_cache(const ClientAddr& client_key, uint32_t request_id,
 
 void UDPServer::cache_response(const ClientAddr& client_key, uint32_t request_id,
                                const ByteBuffer& response) {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    
     CachedResponse cached;
     cached.response_data.assign(response.data(), response.data() + response.size());
     cached.timestamp = time(nullptr);
     
     response_cache[client_key][request_id] = cached;
+    
+    // Cleanup old entries if cache grows too large
+    if (response_cache.size() > 1000) {
+        cleanup_old_cache_entries();
+    }
+}
+
+void UDPServer::cleanup_old_cache_entries() {
+    // Called with cache_mutex already locked
+    time_t now = time(nullptr);
+    const time_t MAX_CACHE_AGE = 300; // 5 minutes
+    
+    for (auto client_it = response_cache.begin(); client_it != response_cache.end();) {
+        auto& requests = client_it->second;
+        for (auto req_it = requests.begin(); req_it != requests.end();) {
+            if (now - req_it->second.timestamp > MAX_CACHE_AGE) {
+                req_it = requests.erase(req_it);
+            } else {
+                ++req_it;
+            }
+        }
+        
+        if (requests.empty()) {
+            client_it = response_cache.erase(client_it);
+        } else {
+            ++client_it;
+        }
+    }
 }
 
 ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& client_addr) {
@@ -70,9 +127,13 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
     uint8_t message_type = request.read_uint8();
     request.read_uint16();  // payload_length (for protocol consistency)
     
-    std::cout << "Processing request ID: " << request_id << ", Type: " << (int)message_type << std::endl;
+    std::cout << "[Thread " << std::this_thread::get_id() << "] Processing request ID: " 
+              << request_id << ", Type: " << (int)message_type << std::endl;
     
     ByteBuffer response;
+    
+    // Create thread-local request handler
+    RequestHandlers handlers(facility_manager, monitor_manager);
     
     try {
         switch (message_type) {
@@ -117,7 +178,101 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
     final_response.write_uint32(request_id);
     final_response.write_bytes(response.data(), response.size());
     
+    processed_requests++;
+    
     return final_response;
+}
+
+void UDPServer::worker_thread_func() {
+    std::cout << "Worker thread " << std::this_thread::get_id() << " started" << std::endl;
+    
+    while (!shutdown_flag) {
+        RequestTask task;
+        
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            
+            // Wait for task or shutdown signal
+            queue_cv.wait(lock, [this] { 
+                return !task_queue.empty() || shutdown_flag; 
+            });
+            
+            if (shutdown_flag && task_queue.empty()) {
+                break;
+            }
+            
+            if (!task_queue.empty()) {
+                task = std::move(task_queue.front());
+                task_queue.pop();
+            } else {
+                continue;
+            }
+        }
+        
+        // Process the task outside the lock
+        process_task(task);
+    }
+    
+    std::cout << "Worker thread " << std::this_thread::get_id() << " stopped" << std::endl;
+}
+
+void UDPServer::process_task(const RequestTask& task) {
+    try {
+        const uint8_t* buffer = task.data.data();
+        size_t buffer_len = task.data.size();
+        
+        // For at-most-once, check cache first
+        if (use_at_most_once) {
+            uint32_t request_id;
+            std::memcpy(&request_id, buffer, sizeof(request_id));
+            request_id = ntohl(request_id);
+            
+            ClientAddr client_key;
+            client_key.ip = task.client_addr.sin_addr.s_addr;
+            client_key.port = task.client_addr.sin_port;
+            
+            std::vector<uint8_t> cached_response;
+            if (check_cache(client_key, request_id, cached_response)) {
+                std::cout << "[Thread " << std::this_thread::get_id() 
+                         << "] Found cached response for request " << request_id << std::endl;
+                
+                sendto(sockfd, cached_response.data(), cached_response.size(), 0,
+                       (struct sockaddr*)&task.client_addr, sizeof(task.client_addr));
+                return;
+            }
+        }
+        
+        ByteBuffer request(buffer, buffer_len);
+        ByteBuffer response = process_request(request, task.client_addr);
+        
+        // Cache response if using at-most-once
+        if (use_at_most_once) {
+            uint32_t request_id;
+            std::memcpy(&request_id, buffer, sizeof(request_id));
+            request_id = ntohl(request_id);
+            
+            ClientAddr client_key;
+            client_key.ip = task.client_addr.sin_addr.s_addr;
+            client_key.port = task.client_addr.sin_port;
+            
+            cache_response(client_key, request_id, response);
+        }
+        
+        // Send response
+        ssize_t sent = sendto(sockfd, response.data(), response.size(), 0,
+                              (struct sockaddr*)&task.client_addr, sizeof(task.client_addr));
+        
+        if (sent < 0) {
+            std::cerr << "Error sending response" << std::endl;
+        } else {
+            std::cout << "[Thread " << std::this_thread::get_id() 
+                     << "] Sent " << sent << " bytes response" << std::endl;
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "[Thread " << std::this_thread::get_id() 
+                 << "] Error: " << e.what() << std::endl;
+    }
 }
 
 void UDPServer::start() {
@@ -125,12 +280,15 @@ void UDPServer::start() {
         return;
     }
     
+    std::cout << "\n=== Multi-threaded UDP Server ===" << std::endl;
     std::cout << "Server listening on port " << port << std::endl;
     std::cout << "Invocation semantic: " << (use_at_most_once ? "at-most-once" : "at-least-once") << std::endl;
+    std::cout << "Worker threads: " << num_threads << std::endl;
+    std::cout << "====================================\n" << std::endl;
     
     uint8_t buffer[MAX_BUFFER_SIZE];
     
-    while (true) {
+    while (!shutdown_flag) {
         sockaddr_in client_addr{};
         socklen_t client_len = sizeof(client_addr);
         
@@ -138,62 +296,39 @@ void UDPServer::start() {
                                      (struct sockaddr*)&client_addr, &client_len);
         
         if (recv_len < 0) {
-            std::cerr << "Error receiving data" << std::endl;
+            if (!shutdown_flag) {
+                std::cerr << "Error receiving data" << std::endl;
+            }
             continue;
         }
         
-        std::cout << "\n--- Received " << recv_len << " bytes from "
-                  << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << std::endl;
+        total_requests++;
         
-        try {
-            // For at-most-once, check cache first
-            if (use_at_most_once) {
-                uint32_t request_id;
-                std::memcpy(&request_id, buffer, sizeof(request_id));
-                request_id = ntohl(request_id);
-                
-                ClientAddr client_key;
-                client_key.ip = client_addr.sin_addr.s_addr;
-                client_key.port = client_addr.sin_port;
-                
-                std::vector<uint8_t> cached_response;
-                if (check_cache(client_key, request_id, cached_response)) {
-                    std::cout << "Found cached response for request " << request_id << std::endl;
-                    
-                    sendto(sockfd, cached_response.data(), cached_response.size(), 0,
-                           (struct sockaddr*)&client_addr, client_len);
-                    continue;
-                }
-            }
-            
-            ByteBuffer request(buffer, recv_len);
-            ByteBuffer response = process_request(request, client_addr);
-            
-            // Cache response if using at-most-once
-            if (use_at_most_once) {
-                uint32_t request_id;
-                std::memcpy(&request_id, buffer, sizeof(request_id));
-                request_id = ntohl(request_id);
-                
-                ClientAddr client_key;
-                client_key.ip = client_addr.sin_addr.s_addr;
-                client_key.port = client_addr.sin_port;
-                
-                cache_response(client_key, request_id, response);
-            }
-            
-            // Send response
-            ssize_t sent = sendto(sockfd, response.data(), response.size(), 0,
-                                  (struct sockaddr*)&client_addr, client_len);
-            
-            if (sent < 0) {
-                std::cerr << "Error sending response" << std::endl;
-            } else {
-                std::cout << "Sent " << sent << " bytes response" << std::endl;
-            }
-            
-        } catch (const std::exception& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
+        std::cout << "\n--- Received " << recv_len << " bytes from "
+                  << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) 
+                  << " (Total: " << total_requests << ")" << std::endl;
+        
+        // Create task and add to queue
+        RequestTask task;
+        task.data.assign(buffer, buffer + recv_len);
+        task.client_addr = client_addr;
+        task.receive_time = time(nullptr);
+        
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            task_queue.push(std::move(task));
         }
+        
+        // Notify one worker thread
+        queue_cv.notify_one();
     }
+}
+
+void UDPServer::print_statistics() const {
+    std::cout << "\n=== Server Statistics ===" << std::endl;
+    std::cout << "Total requests received: " << total_requests << std::endl;
+    std::cout << "Requests processed: " << processed_requests << std::endl;
+    std::cout << "Cached responses served: " << cached_responses << std::endl;
+    std::cout << "Worker threads: " << num_threads << std::endl;
+    std::cout << "========================\n" << std::endl;
 }

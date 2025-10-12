@@ -51,8 +51,14 @@ void FacilityManager::initialize()
 
 void FacilityManager::save_to_disk()
 {
+    std::lock_guard<std::mutex> lock(storage_mutex);
+    
     if (storage)
     {
+        // Acquire read locks for the data we're saving
+        std::shared_lock<std::shared_mutex> fac_lock(facilities_mutex);
+        std::shared_lock<std::shared_mutex> book_lock(bookings_mutex);
+        
         storage->save_facilities(facilities);
         storage->save_bookings(bookings_by_id);
     }
@@ -60,8 +66,14 @@ void FacilityManager::save_to_disk()
 
 void FacilityManager::load_from_disk()
 {
+    std::lock_guard<std::mutex> storage_lock(storage_mutex);
+    
     if (storage)
     {
+        // Acquire write locks since we're modifying the data
+        std::unique_lock<std::shared_mutex> fac_lock(facilities_mutex);
+        std::unique_lock<std::shared_mutex> book_lock(bookings_mutex);
+        
         storage->load_facilities(facilities);
         storage->load_bookings(bookings_by_id);
 
@@ -72,11 +84,13 @@ void FacilityManager::load_from_disk()
 
 bool FacilityManager::facility_exists(const std::string &name) const
 {
+    std::shared_lock<std::shared_mutex> lock(facilities_mutex);
     return facilities.find(name) != facilities.end();
 }
 
 const Facility &FacilityManager::get_facility(const std::string &name) const
 {
+    std::shared_lock<std::shared_mutex> lock(facilities_mutex);
     return facilities.at(name);
 }
 
@@ -90,6 +104,7 @@ std::vector<TimeSlot> FacilityManager::get_available_slots(
     const std::string &facility_name,
     const std::vector<uint32_t> &days)
 {
+    std::shared_lock<std::shared_mutex> lock(facilities_mutex);
 
     std::vector<TimeSlot> available_slots;
 
@@ -144,6 +159,9 @@ std::vector<TimeSlot> FacilityManager::get_available_slots(
 uint32_t FacilityManager::create_booking(const std::string &facility_name,
                                          time_t start_time, time_t end_time)
 {
+    std::unique_lock<std::shared_mutex> fac_lock(facilities_mutex);
+    std::unique_lock<std::shared_mutex> book_lock(bookings_mutex);
+    
     auto it = facilities.find(facility_name);
     if (it == facilities.end())
     {
@@ -172,7 +190,9 @@ uint32_t FacilityManager::create_booking(const std::string &facility_name,
 
     std::cout << "Created booking ID: " << new_booking.booking_id << std::endl;
 
-    // Save to disk
+    // Save to disk (will acquire its own locks)
+    fac_lock.unlock();
+    book_lock.unlock();
     save_to_disk();
 
     return new_booking.booking_id;
@@ -180,6 +200,9 @@ uint32_t FacilityManager::create_booking(const std::string &facility_name,
 
 bool FacilityManager::change_booking(uint32_t booking_id, int32_t offset_minutes)
 {
+    std::unique_lock<std::shared_mutex> fac_lock(facilities_mutex);
+    std::unique_lock<std::shared_mutex> book_lock(bookings_mutex);
+    
     auto it = bookings_by_id.find(booking_id);
     if (it == bookings_by_id.end())
     {
@@ -219,7 +242,9 @@ bool FacilityManager::change_booking(uint32_t booking_id, int32_t offset_minutes
         }
     }
 
-    // Save to disk
+    // Save to disk (will acquire its own locks)
+    fac_lock.unlock();
+    book_lock.unlock();
     save_to_disk();
 
     return true;
@@ -227,6 +252,9 @@ bool FacilityManager::change_booking(uint32_t booking_id, int32_t offset_minutes
 
 bool FacilityManager::extend_booking(uint32_t booking_id, uint32_t minutes_to_extend)
 {
+    std::unique_lock<std::shared_mutex> fac_lock(facilities_mutex);
+    std::unique_lock<std::shared_mutex> book_lock(bookings_mutex);
+    
     auto it = bookings_by_id.find(booking_id);
     if (it == bookings_by_id.end())
     {
@@ -263,7 +291,9 @@ bool FacilityManager::extend_booking(uint32_t booking_id, uint32_t minutes_to_ex
         }
     }
 
-    // Save to disk
+    // Save to disk (will acquire its own locks)
+    fac_lock.unlock();
+    book_lock.unlock();
     save_to_disk();
 
     return true;
@@ -271,16 +301,20 @@ bool FacilityManager::extend_booking(uint32_t booking_id, uint32_t minutes_to_ex
 
 bool FacilityManager::booking_exists(uint32_t booking_id) const
 {
+    std::shared_lock<std::shared_mutex> lock(bookings_mutex);
     return bookings_by_id.find(booking_id) != bookings_by_id.end();
 }
 
 const Booking &FacilityManager::get_booking(uint32_t booking_id) const
 {
+    std::shared_lock<std::shared_mutex> lock(bookings_mutex);
     return bookings_by_id.at(booking_id);
 }
 
 time_t FacilityManager::get_last_booking_time(const std::string &facility_name) const
 {
+    std::shared_lock<std::shared_mutex> lock(facilities_mutex);
+    
     auto it = facilities.find(facility_name);
     if (it == facilities.end())
     {

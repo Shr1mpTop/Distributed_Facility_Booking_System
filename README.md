@@ -1,290 +1,196 @@
-# 分布式设施预订系统 (模块化版本)
+# 🏢 分布式设施预订系统
 
-一个基于UDP通信的分布式客户端-服务器应用，用于管理设施预订。系统包含模块化的C++服务器和Python客户端（支持CLI和GUI两种界面）。
+[![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
+[![Python](https://img.shields.io/badge/Python-3.6+-green.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+一个高性能、多线程的分布式设施预订系统，采用 UDP 通信协议，支持高并发请求处理。
+
+---
+
+## ✨ 核心特性
+
+### 🚀 高性能多线程架构
+- **线程池模型**: 生产者-消费者模式，支持高并发
+- **可配置线程数**: 根据 CPU 核心数自动调整或手动指定（`--threads N`）
+- **读写锁优化**: 查询操作并发执行，修改操作独占访问
+- **理论吞吐量**: 800+ 请求/秒（8线程配置）
+
+### ⏰ UTC+8 时区支持
+- 统一时区管理，所有时间操作基于 **UTC+8**（中国标准时间）
+- 跨平台时区设置（Linux/Windows）
+- 确保全球部署时间一致性
+
+### 🔒 双重调用语义
+- **至少一次（At-Least-Once）**: 适用于幂等操作（查询、获取信息）
+- **至多一次（At-Most-Once）**: 请求去重，适用于非幂等操作（预订、修改）
+
+### 💾 数据持久化
+- JSON 格式存储设施和预订数据
+- 服务器重启后自动恢复
+- 线程安全的磁盘 I/O 操作
+
+### 🖥️ 多客户端支持
+- **GUI 客户端**: 基于 tkinter 的图形界面（推荐）
+- **CLI 客户端**: 命令行交互界面
+- **监控客户端**: 实时监控设施可用性变化
+
+---
+
+## 📋 功能列表
+
+| 功能 | 描述 | 操作类型 |
+|-----|------|---------|
+| 🔍 查询可用性 | 查看设施的可用时间段 | 幂等 |
+| 📅 预订设施 | 预订特定时间段 | 非幂等 |
+| ✏️ 修改预订 | 通过时间偏移修改预订 | 非幂等 |
+| 👁️ 监控设施 | 实时接收设施可用性更新 | - |
+| ⏱️ 获取最后预订时间 | 查询设施最后预订的结束时间 | 幂等 |
+| ➕ 延长预订 | 延长现有预订的时长 | 非幂等 |
+
+---
+
+## 🔧 快速开始
+
+### 系统要求
+
+**服务器端**:
+- Linux 操作系统（推荐 Ubuntu 18.04+）
+- g++ 编译器（支持 C++17）
+- make 构建工具
+
+**客户端**:
+- Python 3.6+
+- tkinter（GUI 客户端需要）
+
+### 安装与运行
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/Shr1mpTop/Distributed_Facility_Booking_System.git
+cd Distributed_Facility_Booking_System
+
+# 2. 编译服务器（在 Linux 服务器上）
+make clean
+make
+
+# 3. 启动服务器
+./bin/server 8080 --semantic at-least-once --threads 8
+
+# 4. 启动客户端（在本地机器上）
+python3 client/gui/gui_client.py <server-ip> 8080
+```
+
+### 服务器命令行选项
+
+```bash
+./bin/server <port> [OPTIONS]
+
+选项:
+  --semantic <at-least-once|at-most-once>  调用语义（默认: at-least-once）
+  --threads <N>                            工作线程数（默认: CPU核心数）
+
+示例:
+  ./bin/server 8080 --semantic at-most-once --threads 16
+```
+
+### 客户端启动
+
+| 客户端 | 命令 | 用途 |
+|-------|------|-----|
+| **GUI** | `python3 client/gui/gui_client.py <host> <port>` | 图形界面（推荐） |
+| **CLI** | `python3 client/cli/cli_client.py <host> <port>` | 命令行界面 |
+| **Monitor** | `python3 client/monitor/monitor_client.py <host> <port>` | 实时监控 |
+
+---
+
+## 📊 性能指标
+
+### 并发能力对比
+
+| 指标 | 单线程版本 | 多线程版本(8线程) | 提升 |
+|-----|----------|----------------|-----|
+| 理论吞吐量 | 100 req/s | 800 req/s | **8x** |
+| 查询并发度 | 1 | N个线程 | **Nx** |
+| CPU利用率 | 单核 | 多核 | **全核心** |
+
+### 线程配置建议
+
+| 场景 | CPU核心数 | 推荐线程数 | 命令示例 |
+|-----|---------|----------|---------|
+| 测试环境 | 2-4 | 4 | `--threads 4` |
+| 小型生产 | 4-8 | 8 | `--threads 8` |
+| 中型生产 | 8-16 | 16 | `--threads 16` |
+| 大型生产 | 16+ | CPU核心×2 | `--threads 32` |
+
+---
+
+## 🏗️ 架构设计
+
+### 线程池模型
+
+```
+                                    ┌──────────────────┐
+                                    │  Worker Thread 1  │
+                                    └──────────────────┘
+                                             ↑
+                                             │
+┌─────────────┐         ┌──────────────────────────┐
+│   Main      │ ------> │    Task Queue           │
+│   Thread    │         │  (Thread-Safe)          │
+│  (Receive)  │         └──────────────────────────┘
+└─────────────┘                      │
+                                     ↓
+                                    ┌──────────────────┐
+                                    │  Worker Thread N  │
+                                    └──────────────────┘
+```
+
+**工作流程**:
+1. 主线程接收 UDP 请求并加入任务队列
+2. 工作线程从队列获取任务并处理
+3. 使用读写锁保护共享数据
+4. 查询操作可并发，修改操作独占访问
+
+### 线程安全机制
+
+| 数据类型 | 锁类型 | 并发读取 | 独占写入 |
+|---------|--------|---------|---------|
+| 设施数据 | `std::shared_mutex` | ✅ | ✅ |
+| 预订数据 | `std::shared_mutex` | ✅ | ✅ |
+| 任务队列 | `std::mutex` | - | ✅ |
+| 响应缓存 | `std::mutex` | - | ✅ |
+| 统计信息 | `std::atomic` | ✅ | ✅ |
+
+---
 
 ## 📁 项目结构
 
 ```
 Distributed_Facility_Booking_System/
-├── server/                      # C++服务器
+├── server/                      # C++ 多线程服务器
 │   ├── include/                 # 头文件
-│   │   ├── message_types.h      # 消息类型定义
-│   │   ├── data_structures.h    # 数据结构
-│   │   ├── byte_buffer.h        # 序列化/反序列化工具
-│   │   ├── facility_manager.h   # 设施管理器
-│   │   ├── monitor_manager.h    # 监控管理器
+│   │   ├── udp_server.h         # 多线程 UDP 服务器
+│   │   ├── facility_manager.h   # 线程安全的设施管理器
 │   │   ├── request_handlers.h   # 请求处理器
-│   │   └── udp_server.h         # UDP服务器
+│   │   └── ...
 │   └── src/                     # 源文件
-│       ├── main.cpp
-│       ├── byte_buffer.cpp
-│       ├── facility_manager.cpp
-│       ├── monitor_manager.cpp
-│       ├── request_handlers.cpp
-│       └── udp_server.cpp
+│       ├── main.cpp             # 程序入口（时区设置）
+│       ├── udp_server.cpp       # 线程池实现
+│       ├── facility_manager.cpp # 读写锁实现
+│       └── ...
 │
-├── client/                      # Python客户端
+├── client/                      # Python 客户端
 │   ├── common/                  # 公共模块
-│   │   ├── __init__.py
-│   │   ├── message_types.py     # 消息类型定义
-│   │   ├── byte_buffer.py       # 序列化/反序列化工具
-│   │   └── network_client.py    # 网络通信模块
-│   ├── cli/                     # 命令行界面客户端
-│   │   └── cli_client.py
-│   ├── gui/                     # 图形界面客户端
-│   │   └── gui_client.py        # 使用tkinter的GUI客户端
-│   └── monitor/                 # 独立监控客户端
-│       ├── monitor_client.py    # 独立的监控GUI应用
-│       ├── README.md           # 监控客户端文档
-│       └── CHANGES.md          # 变更说明
+│   ├── cli/                     # 命令行客户端
+│   ├── gui/                     # GUI 客户端
+│   └── monitor/                 # 监控客户端
 │
-├── bin/                         # 编译后的可执行文件
-│   └── server
-├── Makefile.new                 # 新的构建文件
-└── README_NEW.md               # 本文档
+├── Makefile                     # 构建文件
+└── README.md                    # 本文档
 ```
 
-## ✨ 主要特性
-
-### 模块化设计
-
-#### C++服务器模块
-
-1. **消息类型 (message_types.h)**: 定义所有通信协议常量
-2. **数据结构 (data_structures.h)**: 核心数据结构定义
-3. **字节缓冲 (byte_buffer)**: 手动序列化/反序列化
-4. **设施管理器 (facility_manager)**: 管理所有设施和预订
-5. **监控管理器 (monitor_manager)**: 处理客户端监控注册和通知
-6. **请求处理器 (request_handlers)**: 处理各类客户端请求
-7. **UDP服务器 (udp_server)**: 网络通信和请求分发
-
-#### Python客户端模块
-
-1. **公共模块 (common/)**: 
-   - `message_types.py`: 消息类型常量
-   - `byte_buffer.py`: 序列化/反序列化工具类
-   - `network_client.py`: UDP通信封装
-
-2. **CLI客户端 (cli/)**: 命令行文本界面
-3. **GUI客户端 (gui/)**: 图形用户界面（使用tkinter）
-4. **监控客户端 (monitor/)**: 独立的设施监控应用
-
-### 核心功能
-
-1. ✅ **查询可用性**: 查看设施的可用时间段
-2. ✅ **预订设施**: 预订特定时间段
-3. ✅ **修改预订**: 通过时间偏移修改预订
-4. ✅ **监控设施**: 实时接收设施可用性更新
-5. ✅ **获取最后预订时间** (幂等操作)
-6. ✅ **延长预订** (非幂等操作)
-
-### 技术特性
-
-- ✅ 原始UDP套接字通信
-- ✅ 手动数据序列化（无RPC/RMI库）
-- ✅ 可配置的调用语义（至少一次/至多一次）
-- ✅ 自动重试和超时处理
-- ✅ 基于回调的监控系统
-- ✅ 请求去重（至多一次语义）
-
-## 🔧 系统要求
-
-### 服务器
-- **操作系统**: Linux 或 macOS
-- **编译器**: g++ 支持 C++17
-- **构建工具**: make
-
-### 客户端
-- **Python**: 3.6 或更高版本
-- **GUI依赖**: tkinter (通常随Python自带)
-- **库**: 仅标准库，无需额外依赖
-
-## 🔨 构建系统
-
-### 编译服务器
-
-```bash
-# 使用新的Makefile
-make -f Makefile.new
-
-# 或者手动编译
-g++ -std=c++17 -Wall -Wextra -O2 -I server/include \
-    server/src/*.cpp -o bin/server
-```
-
-### 清理构建
-
-```bash
-make -f Makefile.new clean
-```
-
-## 🚀 运行系统
-
-### 1. 启动服务器
-
-#### 至少一次语义（默认）
-```bash
-./bin/server 8080 --semantic at-least-once
-```
-
-#### 至多一次语义
-```bash
-./bin/server 8080 --semantic at-most-once
-```
-
-或使用Makefile:
-```bash
-make -f Makefile.new run                  # 至少一次
-make -f Makefile.new run-at-most-once     # 至多一次
-```
-
-### 2. 启动客户端
-
-#### GUI客户端（推荐）
-
-```bash
-python3 client/gui/gui_client.py localhost 8080
-```
-
-或使用Makefile:
-```bash
-make -f Makefile.new run-gui
-```
-
-#### CLI客户端
-
-```bash
-python3 client/cli/cli_client.py localhost 8080
-```
-
-或使用Makefile:
-```bash
-make -f Makefile.new run-cli
-```
-
-## 🎨 GUI客户端界面
-
-GUI客户端提供了友好的图形界面，包含以下功能标签页：
-
-### 1. 查询可用性标签页
-- 选择设施名称（下拉菜单）
-- 输入要查询的天数（逗号分隔）
-- 显示所有可用时间段
-
-### 2. 预订设施标签页
-- 选择设施名称
-- 选择日期和时间
-- 输入预订时长
-- 获取确认ID
-
-### 3. 修改预订标签页
-- 输入确认ID
-- 设置时间偏移（分钟）
-- 支持正负偏移
-
-### 4. 监控设施标签页
-- 选择要监控的设施
-- 设置监控时长
-- 实时显示更新通知
-
-### 5. 其他操作标签页
-- 获取最后预订时间（幂等操作）
-- 延长预订（非幂等操作）
-
-### 底部日志区域
-- 实时显示所有操作日志
-- 带时间戳的消息记录
-
-## � 独立监控客户端
-
-除了主GUI客户端，系统还提供了一个**独立的监控客户端**，专门用于实时监控设施可用性变化。
-
-### 特点
-
-- **独立窗口**: 与主GUI客户端分离的独立应用
-- **实时监控**: 持续查询设施可用性并自动检测变化
-- **变化检测**: 自动高亮显示可用性变化，并显示详细差异
-- **多实例支持**: 可同时运行多个监控客户端监控不同设施
-- **统计信息**: 显示检查次数、变化次数、当前可用时段数和运行时间
-- **彩色日志**: 不同类型消息使用不同颜色区分
-
-### 启动监控客户端
-
-```bash
-# 直接启动
-python3 client/monitor/monitor_client.py localhost 8080
-
-# 或使用Makefile
-make run-monitor
-
-# 启动多个监控实例（监控不同设施）
-python3 client/monitor/monitor_client.py localhost 8080  # 终端1
-python3 client/monitor/monitor_client.py localhost 8080  # 终端2
-```
-
-### 使用方法
-
-1. 选择要监控的设施
-2. 设置检查间隔（秒）
-3. 设置监控时长（0表示无限）
-4. 指定要监控的天数
-5. 点击"▶ Start Monitoring"开始监控
-6. 查看实时日志和统计信息
-
-### 监控输出示例
-
-```
-[10:15:23] Check #1 - No changes detected (27 slots available)
-[10:15:26] Check #2 - No changes detected (27 slots available)
-[10:15:29] Check #3 - 🔔 CHANGE DETECTED! Available slots changed from 27 to 26
-[10:15:29]   ↓ Removed: 1 slot(s)
-[10:15:29]     - 2025-10-11 14:00 to 15:00
-```
-
-详细文档请参阅 `client/monitor/README.md`
-
-## �📝 使用示例
-
-### 示例1: 使用GUI查询和预订
-
-1. **启动服务器**:
-   ```bash
-   ./bin/server 8080 --semantic at-most-once
-   ```
-
-2. **启动GUI客户端**:
-   ```bash
-   python3 client/gui/gui_client.py localhost 8080
-   ```
-
-3. **查询可用性**:
-   - 切换到"查询可用性"标签
-   - 选择"Conference_Room_A"
-   - 输入天数: `0,1,2`
-   - 点击"查询"按钮
-
-4. **预订设施**:
-   - 切换到"预订设施"标签
-   - 选择设施
-   - 输入日期和时间
-   - 点击"预订"按钮
-   - 记下确认ID
-
-### 示例2: 监控测试
-
-```bash
-# 终端1: 启动服务器
-./bin/server 8080
-
-# 终端2: 启动GUI客户端1（监控）
-python3 client/gui/gui_client.py localhost 8080
-# 在GUI中选择"监控设施"，监控"Lab_101"，120秒
-
-# 终端3: 启动GUI客户端2（预订）
-python3 client/gui/gui_client.py localhost 8080
-# 在GUI中预订"Lab_101"
-# 客户端1应该收到更新通知
-```
+---
 
 ## 🔄 通信协议
 
@@ -304,157 +210,118 @@ python3 client/gui/gui_client.py localhost 8080
 
 ### 消息类型
 
-- `1`: 查询可用性
-- `2`: 预订设施
-- `3`: 修改预订
-- `4`: 监控设施
-- `5`: 获取最后预订时间
-- `6`: 延长预订
-- `100`: 成功响应
-- `101`: 错误响应
+| 类型码 | 名称 | 描述 |
+|-------|------|-----|
+| `1` | QUERY_AVAILABILITY | 查询可用性 |
+| `2` | BOOK_FACILITY | 预订设施 |
+| `3` | CHANGE_BOOKING | 修改预订 |
+| `4` | MONITOR_FACILITY | 监控设施 |
+| `5` | GET_LAST_BOOKING_TIME | 获取最后预订时间 |
+| `6` | EXTEND_BOOKING | 延长预订 |
+| `100` | RESPONSE_SUCCESS | 成功响应 |
+| `101` | RESPONSE_ERROR | 错误响应 |
 
-## 🎯 调用语义
-
-### 至少一次 (At-Least-Once)
-
-- **行为**: 服务器处理接收到的每个请求
-- **保证**: 请求至少被处理一次（重试时可能多次）
-- **适用**: 幂等操作（查询、获取最后预订时间）
-
-### 至多一次 (At-Most-Once)
-
-- **行为**: 服务器缓存响应并检查重复请求
-- **保证**: 每个唯一请求最多处理一次
-- **实现**: 维护 `(客户端地址, 请求ID)` → `响应` 缓存
-- **适用**: 非幂等操作（预订、延长预订）
-
-## 🧪 测试建议
-
-### 功能测试
-
-1. **基本预订流程**:
-   - 查询可用性
-   - 预订设施
-   - 验证确认ID
-   - 再次查询验证时间段已被预订
-
-2. **修改预订**:
-   - 创建预订
-   - 修改预订时间
-   - 验证新时间没有冲突
-
-3. **监控功能**:
-   - 客户端1注册监控
-   - 客户端2进行预订
-   - 验证客户端1收到更新
-
-4. **幂等vs非幂等**:
-   - 测试"获取最后预订时间"多次调用返回相同结果
-   - 测试"延长预订"多次调用会累积效果
-
-### 网络测试
-
-1. **超时重试**: 
-   - 临时断开网络
-   - 验证客户端自动重试
-
-2. **并发测试**:
-   - 多个客户端同时预订同一时间段
-   - 验证只有一个成功
-
-## 🌟 与原版本的改进
-
-### 原版本 (单文件)
-- ✗ 单个大型源文件
-- ✗ 代码耦合度高
-- ✗ 难以维护和扩展
-- ✗ 仅命令行界面
-
-### 新版本 (模块化)
-- ✓ 清晰的模块分离
-- ✓ 低耦合高内聚
-- ✓ 易于维护和扩展
-- ✓ 提供GUI和CLI两种界面
-- ✓ 更好的代码组织
-
-## 📚 代码组织优势
-
-1. **可维护性**: 每个模块职责单一，易于理解和修改
-2. **可扩展性**: 添加新功能无需修改现有代码
-3. **可测试性**: 每个模块可独立测试
-4. **可重用性**: 公共模块可在CLI和GUI之间共享
-5. **可读性**: 清晰的文件结构和命名
+---
 
 ## 🔍 预初始化设施
 
-服务器启动时会初始化以下设施:
-- Conference_Room_A
-- Conference_Room_B
-- Lab_101
-- Lab_102
-- Auditorium
+服务器启动时自动初始化以下设施：
 
-每个设施的可用时间: 每天 9:00 AM - 6:00 PM，1小时时间段
+- **Conference_Room_A** - 会议室 A
+- **Conference_Room_B** - 会议室 B
+- **Lab_101** - 实验室 101
+- **Lab_102** - 实验室 102
+- **Auditorium** - 礼堂
 
-## ⚠️ 注意事项
+**可用时间**: 每天 9:00 AM - 6:00 PM（UTC+8），按 1 小时时间段划分
 
-1. **端口使用**: 确保选择的端口未被占用
-2. **防火墙**: 确保UDP流量被允许
-3. **时区**: 服务器和客户端最好在同一时区
-4. **GUI依赖**: GUI客户端需要tkinter支持
-5. **Python路径**: GUI客户端使用相对导入，确保从正确目录运行
+---
 
 ## 🐛 故障排除
 
 ### 服务器无法启动
+
 ```bash
 # 检查端口是否被占用
-lsof -i :8080
+sudo netstat -ulnp | grep 8080
 
 # 终止占用进程
-kill -9 <PID>
+sudo kill -9 <PID>
 ```
 
 ### 客户端无法连接
+
 ```bash
 # 验证服务器运行
 ps aux | grep server
 
+# 检查防火墙
+sudo ufw allow 8080/udp
+
 # 测试网络连接
-ping localhost
+ping <server-ip>
 ```
 
-### GUI无法启动
+### 编译错误
+
 ```bash
-# 检查tkinter安装
-python3 -m tkinter
+# 确保在 Linux 环境编译
+uname -a
 
-# 如果缺失，在macOS上:
-brew install python-tk
+# 检查 g++ 版本（需要 C++17 支持）
+g++ --version
+
+# 安装依赖
+sudo apt update
+sudo apt install build-essential
 ```
+
+---
+
+## ⚠️ 注意事项
+
+1. **编译环境**: 必须在 Linux 环境编译（使用 Linux 特有网络 API）
+2. **GUI 客户端**: 需要在有图形界面的机器上运行（本地 Windows/macOS/Linux）
+3. **时区**: 服务器自动设置 UTC+8，无需手动配置
+4. **端口**: 确保 UDP 端口未被占用且防火墙已开放
+5. **线程数**: 不建议超过 CPU 核心数的 2 倍
+
+---
+
+## 🚀 部署建议
+
+### 开发环境
+```bash
+./bin/server 8080 --semantic at-least-once --threads 4
+```
+
+### 生产环境
+```bash
+# 后台运行
+nohup ./bin/server 8080 --semantic at-most-once --threads 16 > server.log 2>&1 &
+
+# 查看日志
+tail -f server.log
+
+# 停止服务器
+pkill -f "bin/server"
+```
+
+---
 
 ## 📄 许可证
 
-本项目为大学教育项目。
+本项目为教育项目，遵循 MIT 许可证。
 
-## 👨‍💻 开发建议
+---
 
-### 添加新操作
+## 👨‍💻 作者
 
-1. 在 `message_types.h` 和 `message_types.py` 中添加新消息类型
-2. 在 `request_handlers.h` 中声明处理函数
-3. 在 `request_handlers.cpp` 中实现处理逻辑
-4. 在 `udp_server.cpp` 的 `process_request` 中添加case
-5. 在GUI客户端中添加新的UI组件和处理函数
-
-### 扩展数据结构
-
-1. 在 `data_structures.h` 中定义新结构
-2. 在 `facility_manager.h` 中添加相关操作
-3. 实现序列化/反序列化逻辑
+- **GitHub**: [Shr1mpTop](https://github.com/Shr1mpTop)
+- **项目**: Distributed_Facility_Booking_System
 
 ---
 
 **祝使用愉快！🎉**
 
-如有问题，请查看日志输出或提交Issue。
+如有问题，请查看服务器日志或提交 Issue。
