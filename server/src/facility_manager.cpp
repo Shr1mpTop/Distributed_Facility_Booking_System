@@ -14,7 +14,12 @@ FacilityManager::FacilityManager()
     if (!storage->initialize())
     {
         std::cerr << "Warning: JSON storage initialization failed, data may not be persisted" << std::endl;
-    }
+    }    
+    // Log current time in UTC+8 for verification
+    time_t now = time(nullptr);
+    struct tm *tm_info = localtime(&now);
+    char time_str[64];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S %Z", tm_info);
 }
 
 void FacilityManager::initialize()
@@ -97,15 +102,17 @@ std::vector<TimeSlot> FacilityManager::get_available_slots(
     const Facility &facility = it->second;
 
     // For each day, check 9 AM to 6 PM in 1-hour slots
+    // Note: All time operations use UTC+8 timezone set in main()
     for (uint32_t day_offset : days)
     {
         time_t day_start = time(nullptr) + (day_offset * 86400);
 
+        // localtime() uses the timezone set via TZ environment variable (UTC+8)
         struct tm *tm_info = localtime(&day_start);
-        tm_info->tm_hour = 9;
+        tm_info->tm_hour = 9;  // 9 AM in UTC+8
         tm_info->tm_min = 0;
         tm_info->tm_sec = 0;
-        time_t slot_start = mktime(tm_info);
+        time_t slot_start = mktime(tm_info);  // mktime() also respects TZ setting
 
         for (int hour = 0; hour < 9; hour++)
         {
