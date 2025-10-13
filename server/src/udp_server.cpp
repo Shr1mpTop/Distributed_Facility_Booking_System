@@ -143,18 +143,32 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
                 break;
                 
             case BOOK_FACILITY: {
-                // Save facility name before processing
+                // Save facility name and time info before processing
                 size_t saved_pos = request.position();
                 affected_facility = request.read_string();
+                time_t start_time = request.read_time();
+                time_t end_time = request.read_time();
                 request.set_position(saved_pos);
                 
                 response = handlers.handle_book_facility(request);
                 
                 // If booking successful, notify monitors
                 if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
-                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
-                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
-                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                    // Extract booking ID from response
+                    ByteBuffer resp_copy(response.data(), response.size());
+                    resp_copy.read_uint8();  // Skip status
+                    uint32_t booking_id = resp_copy.read_uint32();
+                    
+                    // Create booking change notification
+                    BookingChange change;
+                    change.operation = OP_BOOK;
+                    change.booking_id = booking_id;
+                    change.start_time = start_time;
+                    change.end_time = end_time;
+                    change.old_start_time = 0;
+                    change.old_end_time = 0;
+                    
+                    monitor_manager.notify_monitors(affected_facility, change, sockfd);
                 }
                 break;
             }
@@ -165,17 +179,27 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
                 uint32_t booking_id = request.read_uint32();
                 request.set_position(saved_pos);
                 
+                Booking old_booking;
                 if (facility_manager.booking_exists(booking_id)) {
-                    affected_facility = facility_manager.get_booking(booking_id).facility_name;
+                    old_booking = facility_manager.get_booking(booking_id);
+                    affected_facility = old_booking.facility_name;
                 }
                 
                 response = handlers.handle_change_booking(request);
                 
                 // If change successful, notify monitors
                 if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
-                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
-                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
-                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                    const Booking &new_booking = facility_manager.get_booking(booking_id);
+                    
+                    BookingChange change;
+                    change.operation = OP_CHANGE;
+                    change.booking_id = booking_id;
+                    change.start_time = new_booking.start_time;
+                    change.end_time = new_booking.end_time;
+                    change.old_start_time = old_booking.start_time;
+                    change.old_end_time = old_booking.end_time;
+                    
+                    monitor_manager.notify_monitors(affected_facility, change, sockfd);
                 }
                 break;
             }
@@ -194,17 +218,27 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
                 uint32_t booking_id = request.read_uint32();
                 request.set_position(saved_pos);
                 
+                Booking old_booking;
                 if (facility_manager.booking_exists(booking_id)) {
-                    affected_facility = facility_manager.get_booking(booking_id).facility_name;
+                    old_booking = facility_manager.get_booking(booking_id);
+                    affected_facility = old_booking.facility_name;
                 }
                 
                 response = handlers.handle_extend_booking(request);
                 
                 // If extension successful, notify monitors
                 if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
-                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
-                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
-                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                    const Booking &new_booking = facility_manager.get_booking(booking_id);
+                    
+                    BookingChange change;
+                    change.operation = OP_EXTEND;
+                    change.booking_id = booking_id;
+                    change.start_time = new_booking.start_time;
+                    change.end_time = new_booking.end_time;
+                    change.old_start_time = old_booking.start_time;
+                    change.old_end_time = old_booking.end_time;
+                    
+                    monitor_manager.notify_monitors(affected_facility, change, sockfd);
                 }
                 break;
             }

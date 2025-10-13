@@ -27,6 +27,25 @@ struct TimeSlot
     time_t end_time;
 };
 
+// Booking operation type for monitor notification
+enum BookingOperation
+{
+    OP_BOOK = 1,
+    OP_CHANGE = 2,
+    OP_EXTEND = 3
+};
+
+// Booking change notification
+struct BookingChange
+{
+    BookingOperation operation;
+    uint32_t booking_id;
+    time_t start_time;
+    time_t end_time;
+    time_t old_start_time;  // For change operations
+    time_t old_end_time;    // For change/extend operations
+};
+
 // Client information for monitoring
 struct ClientInfo
 {

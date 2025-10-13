@@ -24,9 +24,9 @@ public:
                           const sockaddr_in &client_addr,
                           uint32_t duration_seconds);
 
-    // Notify all monitors for a facility
+    // Notify all monitors for a facility about a booking change
     void notify_monitors(const std::string &facility_name,
-                         const std::vector<TimeSlot> &slots,
+                         const BookingChange &change,
                          int sockfd);
 
     // Clean up expired monitor registrations

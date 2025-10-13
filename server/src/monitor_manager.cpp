@@ -25,7 +25,7 @@ void MonitorManager::register_monitor(const std::string &facility_name,
 }
 
 void MonitorManager::notify_monitors(const std::string &facility_name,
-                                     const std::vector<TimeSlot> &slots,
+                                     const BookingChange &change,
                                      int sockfd)
 {
     // First cleanup expired monitors
@@ -41,17 +41,37 @@ void MonitorManager::notify_monitors(const std::string &facility_name,
     if (clients.empty())
         return;
 
-    // Build notification message
+    // Build notification message with booking change info
     ByteBuffer notification;
     notification.write_uint32(0);  // request_id = 0 for server-initiated notifications
     notification.write_uint8(RESPONSE_SUCCESS);
-    notification.write_string("Facility update: " + facility_name);
-    notification.write_uint16(static_cast<uint16_t>(slots.size()));
-
-    for (const auto &slot : slots)
+    
+    // Build descriptive message
+    std::string operation_msg;
+    switch (change.operation)
     {
-        notification.write_time(slot.start_time);
-        notification.write_time(slot.end_time);
+        case OP_BOOK:
+            operation_msg = "New booking created";
+            break;
+        case OP_CHANGE:
+            operation_msg = "Booking time changed";
+            break;
+        case OP_EXTEND:
+            operation_msg = "Booking extended";
+            break;
+    }
+    
+    notification.write_string(operation_msg + " for " + facility_name);
+    notification.write_uint8(change.operation);  // Operation type
+    notification.write_uint32(change.booking_id);
+    notification.write_time(change.start_time);
+    notification.write_time(change.end_time);
+    
+    // For change operations, include old times
+    if (change.operation == OP_CHANGE || change.operation == OP_EXTEND)
+    {
+        notification.write_time(change.old_start_time);
+        notification.write_time(change.old_end_time);
     }
 
     // Send to all active monitors
@@ -74,8 +94,9 @@ void MonitorManager::notify_monitors(const std::string &facility_name,
     
     if (sent_count > 0)
     {
-        std::cout << "Sent availability update to " << sent_count 
-                  << " monitoring client(s) for " << facility_name << std::endl;
+        std::cout << "Sent booking change notification to " << sent_count 
+                  << " monitoring client(s) for " << facility_name 
+                  << " (Operation: " << operation_msg << ")" << std::endl;
     }
 }
 

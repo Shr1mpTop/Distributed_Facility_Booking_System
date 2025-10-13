@@ -1419,19 +1419,27 @@ class FacilityBookingGUI:
             
             if status == MSG_RESPONSE_SUCCESS:
                 message = response.read_string()
-                num_slots = response.read_uint16()
+                operation = response.read_uint8()
+                booking_id = response.read_uint32()
+                start_time = response.read_time()
+                end_time = response.read_time()
+                
+                start_dt = datetime.fromtimestamp(start_time)
+                end_dt = datetime.fromtimestamp(end_time)
                 
                 update_text = f"\n[{datetime.now().strftime('%H:%M:%S')}] {message}\n"
-                update_text += f"Available slots: {num_slots}\n"
+                update_text += f"Booking ID: {booking_id}\n"
+                update_text += f"Time: {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}\n"
                 
-                for i in range(num_slots):
-                    start_time = response.read_time()
-                    end_time = response.read_time()
+                # For change/extend operations, show old times
+                if operation == OP_CHANGE or operation == OP_EXTEND:
+                    old_start_time = response.read_time()
+                    old_end_time = response.read_time()
                     
-                    start_dt = datetime.fromtimestamp(start_time)
-                    end_dt = datetime.fromtimestamp(end_time)
+                    old_start_dt = datetime.fromtimestamp(old_start_time)
+                    old_end_dt = datetime.fromtimestamp(old_end_time)
                     
-                    update_text += f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}\n"
+                    update_text += f"Previous: {old_start_dt.strftime('%Y-%m-%d %H:%M')} to {old_end_dt.strftime('%H:%M')}\n"
                 
                 # Update display in main thread
                 self.root.after(0, lambda: self._update_monitor_display(update_text))

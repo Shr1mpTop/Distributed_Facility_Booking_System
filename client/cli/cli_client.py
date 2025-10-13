@@ -25,6 +25,11 @@ MSG_EXTEND_BOOKING = 6
 MSG_RESPONSE_SUCCESS = 100
 MSG_RESPONSE_ERROR = 101
 
+# Booking operation types (for monitor notifications)
+OP_BOOK = 1
+OP_CHANGE = 2
+OP_EXTEND = 3
+
 # Network constants
 TIMEOUT_SECONDS = 3
 MAX_RETRIES = 3
@@ -370,22 +375,32 @@ class FacilityBookingClient:
                     
                     if update_status == MSG_RESPONSE_SUCCESS:
                         update_msg = update.read_string()
-                        num_slots = update.read_uint16()
+                        operation = update.read_uint8()
+                        booking_id = update.read_uint32()
+                        start_time_slot = update.read_time()
+                        end_time_slot = update.read_time()
                         
                         update_count += 1
                         current_time = datetime.now().strftime('%H:%M:%S')
-                        print(f"\n[{current_time}] UPDATE #{update_count}: {update_msg}")
-                        print(f"Available time slots ({num_slots}):")
+                        print(f"\n{'='*60}")
+                        print(f"[{current_time}] UPDATE #{update_count}: {update_msg}")
+                        print(f"{'='*60}")
+                        print(f"  Booking ID: {booking_id}")
                         
-                        for i in range(num_slots):
-                            start_time_slot = update.read_time()
-                            end_time_slot = update.read_time()
+                        start_dt = datetime.fromtimestamp(start_time_slot)
+                        end_dt = datetime.fromtimestamp(end_time_slot)
+                        print(f"  Time Slot:  {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}")
+                        
+                        # For change/extend operations, show old times
+                        if operation == 2 or operation == 3:  # OP_CHANGE or OP_EXTEND
+                            old_start_time = update.read_time()
+                            old_end_time = update.read_time()
                             
-                            start_dt = datetime.fromtimestamp(start_time_slot)
-                            end_dt = datetime.fromtimestamp(end_time_slot)
-                            
-                            print(f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}")
-                        print()
+                            old_start_dt = datetime.fromtimestamp(old_start_time)
+                            old_end_dt = datetime.fromtimestamp(old_end_time)
+                            print(f"  Previous:   {old_start_dt.strftime('%Y-%m-%d %H:%M')} to {old_end_dt.strftime('%H:%M')}")
+                        
+                        print(f"{'='*60}\n")
                     
                 except socket.timeout:
                     # Check if monitoring period is over
