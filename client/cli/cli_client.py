@@ -362,6 +362,7 @@ class FacilityBookingClient:
         start_time_monitor = time.time()
         self.sock.settimeout(1.0)  # Short timeout for checking elapsed time
         update_count = 0
+        last_status_time = 0  # Track last time we printed status
         
         try:
             while time.time() - start_time_monitor < duration_seconds:
@@ -403,14 +404,19 @@ class FacilityBookingClient:
                         print(f"{'='*60}\n")
                     
                 except socket.timeout:
-                    # Check if monitoring period is over
-                    elapsed = time.time() - start_time_monitor
-                    remaining = duration_seconds - elapsed
-                    if remaining > 0 and int(elapsed) % 10 == 0:  # Print status every 10 seconds
-                        print(f"[Still monitoring... {int(remaining)} seconds remaining]")
+                    # Print status every 10 seconds
+                    current_time = time.time()
+                    if current_time - last_status_time >= 10:
+                        elapsed = current_time - start_time_monitor
+                        remaining = duration_seconds - elapsed
+                        if remaining > 0:
+                            print(f"[Still monitoring... {int(remaining)} seconds remaining]")
+                            last_status_time = current_time
                     continue
                 except Exception as e:
                     print(f"Error processing update: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
         
         except KeyboardInterrupt:
