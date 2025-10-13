@@ -1,5 +1,9 @@
-package com.facility.client.common;
+package com.facility.common;
 
+/**
+ * Message Types Constants
+ * Must match server definitions
+ */
 public class MessageTypes {
     // Message type constants
     public static final int MSG_QUERY_AVAILABILITY = 1;

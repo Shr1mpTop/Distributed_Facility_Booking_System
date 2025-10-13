@@ -1,0 +1,24 @@
+# Build artifacts
+obj/
+bin/
+*.o
+*.a
+*.so
+*.dylib
+
+# Executables
+cpp_client
+
+# Debug files
+*.dSYM/
+*.su
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store

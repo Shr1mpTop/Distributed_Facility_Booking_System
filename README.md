@@ -31,9 +31,11 @@
 - 线程安全的磁盘 I/O 操作
 
 ### 🖥️ 多客户端支持
-- **GUI 客户端**: 基于 tkinter 的图形界面（推荐）
-- **CLI 客户端**: 命令行交互界面
-- **监控客户端**: 实时监控设施可用性变化
+- **Python GUI 客户端**: 基于 tkinter 的图形界面（推荐）
+- **Python CLI 客户端**: 命令行交互界面
+- **Python 监控客户端**: 实时监控设施可用性变化
+- **C++ CLI 客户端**: 高性能命令行客户端
+- **Java GUI 客户端**: 跨平台图形界面客户端
 
 ---
 
@@ -59,9 +61,13 @@
 - g++ 编译器（支持 C++17）
 - make 构建工具
 
-**客户端**:
+**Python 客户端**:
 - Python 3.6+
 - tkinter（GUI 客户端需要）
+
+**C++ 客户端**:
+- C++17 编译器（clang++ 或 g++）
+- make 构建工具
 
 ### 安装与运行
 
@@ -98,9 +104,11 @@ python3 client/gui/gui_client.py <server-ip> 8080
 
 | 客户端 | 命令 | 用途 |
 |-------|------|-----|
-| **GUI** | `python3 client/gui/gui_client.py <host> <port>` | 图形界面（推荐） |
-| **CLI** | `python3 client/cli/cli_client.py <host> <port>` | 命令行界面 |
-| **Monitor** | `python3 client/monitor/monitor_client.py <host> <port>` | 实时监控 |
+| **Python GUI** | `python3 client/gui/gui_client.py <host> <port>` | 图形界面（推荐） |
+| **Python CLI** | `python3 client/cli/cli_client.py <host> <port>` | 命令行界面 |
+| **Python Monitor** | `python3 client/monitor/monitor_client.py <host> <port>` | 实时监控 |
+| **C++ CLI** | `cd cpp_client && make && ./bin/cpp_client <host> <port>` | 高性能命令行 |
+| **Java GUI** | `cd java_client && mvn compile exec:java` | Java 图形界面 |
 
 ---
 
@@ -186,7 +194,24 @@ Distributed_Facility_Booking_System/
 │   ├── gui/                     # GUI 客户端
 │   └── monitor/                 # 监控客户端
 │
-├── Makefile                     # 构建文件
+├── cpp_client/                  # C++ 客户端
+│   ├── include/                 # 头文件
+│   │   ├── byte_buffer.h        # 字节缓冲区
+│   │   ├── network_client.h     # 网络客户端
+│   │   ├── facility_client.h    # 设施预订客户端
+│   │   └── message_types.h      # 消息类型定义
+│   ├── src/                     # 源文件
+│   │   ├── byte_buffer.cpp
+│   │   ├── network_client.cpp
+│   │   ├── facility_client.cpp
+│   │   └── main.cpp
+│   ├── Makefile                 # 构建文件
+│   └── README.md                # 客户端说明
+│
+├── java_client/                 # Java 客户端
+│   └── ...
+│
+├── Makefile                     # 服务器构建文件
 └── README.md                    # 本文档
 ```
 
