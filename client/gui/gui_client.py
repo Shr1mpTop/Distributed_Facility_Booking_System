@@ -73,7 +73,13 @@ class TimeTableView(tk.Frame):
             
         # --- TIME SLOTS ---
         self.time_slots = {}
-        times = [f"{h:02d}:00" for h in range(8, 23)]
+        # Generate 30-minute interval time slots from 9:00 to 18:00
+        times = []
+        for h in range(9, 18):
+            times.append(f"{h:02d}:00")
+            times.append(f"{h:02d}:30")
+        times.append("18:00")  # Add final end time
+        
         for i, time in enumerate(times):
             # Time label in the first column - minimal
             tk.Label(
@@ -95,7 +101,7 @@ class TimeTableView(tk.Frame):
                     borderwidth=0,
                     highlightthickness=1,
                     highlightbackground='#f0f0f0',
-                    font=('Helvetica Neue', 8)
+                    font=('Helvetica Neue', 7)
                 )
                 slot.grid(row=i + 1, column=day_index + 1, sticky="nsew", padx=0, pady=0)
                 self.time_slots[f"{day_index}-{time}"] = slot
@@ -135,12 +141,27 @@ class TimeTableView(tk.Frame):
         self.update_column_highlight()
             
     def add_booking(self, day: int, start_time: str, end_time: str, facility: str, booking_id: str = ""):
-        """添加一个预订显示"""
-        start_hour = int(start_time.split(':')[0])
-        end_hour = int(end_time.split(':')[0])
+        """添加一个预订显示（支持30分钟间隔）"""
+        # Parse start and end times
+        start_parts = start_time.split(':')
+        start_hour = int(start_parts[0])
+        start_min = int(start_parts[1]) if len(start_parts) > 1 else 0
         
-        for hour in range(start_hour, end_hour + 1):
-            time_key = f"{day}-{hour:02d}:00"
+        end_parts = end_time.split(':')
+        end_hour = int(end_parts[0])
+        end_min = int(end_parts[1]) if len(end_parts) > 1 else 0
+        
+        # Convert to total minutes for easier calculation
+        start_total_min = start_hour * 60 + start_min
+        end_total_min = end_hour * 60 + end_min
+        
+        # Iterate through 30-minute slots
+        current_min = start_total_min
+        while current_min < end_total_min:
+            hour = current_min // 60
+            minute = current_min % 60
+            time_key = f"{day}-{hour:02d}:{minute:02d}"
+            
             if time_key in self.time_slots:
                 # 简约的深色标记
                 display_text = f"#{booking_id}" if booking_id else "●"
@@ -150,14 +171,31 @@ class TimeTableView(tk.Frame):
                     fg='#ffffff',
                     highlightbackground='#1a1a1a'
                 )
+            
+            current_min += 30  # Move to next 30-minute slot
     
     def mark_available(self, day: int, start_time: str, end_time: str):
-        """标记可用时间段"""
-        start_hour = int(start_time.split(':')[0])
-        end_hour = int(end_time.split(':')[0])
+        """标记可用时间段（支持30分钟间隔）"""
+        # Parse start and end times
+        start_parts = start_time.split(':')
+        start_hour = int(start_parts[0])
+        start_min = int(start_parts[1]) if len(start_parts) > 1 else 0
         
-        for hour in range(start_hour, end_hour + 1):
-            time_key = f"{day}-{hour:02d}:00"
+        end_parts = end_time.split(':')
+        end_hour = int(end_parts[0])
+        end_min = int(end_parts[1]) if len(end_parts) > 1 else 0
+        
+        # Convert to total minutes
+        start_total_min = start_hour * 60 + start_min
+        end_total_min = end_hour * 60 + end_min
+        
+        # Iterate through 30-minute slots
+        current_min = start_total_min
+        while current_min < end_total_min:
+            hour = current_min // 60
+            minute = current_min % 60
+            time_key = f"{day}-{hour:02d}:{minute:02d}"
+            
             if time_key in self.time_slots:
                 # 简约的绿色标记
                 self.time_slots[time_key].config(
@@ -166,6 +204,8 @@ class TimeTableView(tk.Frame):
                     fg='#4caf50',
                     highlightbackground='#c8e6c9'
                 )
+            
+            current_min += 30  # Move to next 30-minute slot
 
 class FacilityBookingGUI:
     """Main GUI client class"""

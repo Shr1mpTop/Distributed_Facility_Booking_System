@@ -116,8 +116,11 @@ std::vector<TimeSlot> FacilityManager::get_available_slots(
 
     const Facility &facility = it->second;
 
-    // For each day, check 9 AM to 6 PM in 1-hour slots
+    // For each day, check 9 AM to 6 PM in 0.5-hour (30-minute) slots
     // Note: All time operations use UTC+8 timezone set in main()
+    const int SLOT_DURATION = 1800;  // 30 minutes = 1800 seconds
+    const int SLOTS_PER_DAY = 18;    // 9 AM to 6 PM = 9 hours = 18 half-hour slots
+    
     for (uint32_t day_offset : days)
     {
         time_t day_start = time(nullptr) + (day_offset * 86400);
@@ -129,9 +132,9 @@ std::vector<TimeSlot> FacilityManager::get_available_slots(
         tm_info->tm_sec = 0;
         time_t slot_start = mktime(tm_info);  // mktime() also respects TZ setting
 
-        for (int hour = 0; hour < 9; hour++)
+        for (int slot = 0; slot < SLOTS_PER_DAY; slot++)
         {
-            time_t slot_end = slot_start + 3600;
+            time_t slot_end = slot_start + SLOT_DURATION;
 
             bool is_available = true;
             for (const auto &booking : facility.bookings)
