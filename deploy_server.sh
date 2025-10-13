@@ -109,51 +109,66 @@ else
 fi
 echo ""
 
-# Step 6: Start server
-echo -e "${YELLOW}[6/6] Starting server...${NC}"
-nohup ./bin/server $PORT --semantic $SEMANTIC > server.log 2>&1 &
-SERVER_PID=$!
+# Step 6: Create and enable systemd service
+echo -e "${YELLOW}[6/6] Creating systemd service...${NC}"
+SERVICE_FILE="/etc/systemd/system/facility-server.service"
+cat > "$SERVICE_FILE" << EOF
+[Unit]
+Description=Distributed Facility Booking Server
+After=network.target
 
-# Wait a moment and check if server started successfully
+[Service]
+Type=simple
+ExecStart=$(pwd)/bin/server $PORT --semantic $SEMANTIC
+WorkingDirectory=$(pwd)
+Restart=always
+RestartSec=5
+User=$(whoami)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable facility-server
+sudo systemctl start facility-server
+
+# Wait a moment and check if service started successfully
 sleep 2
-if ps -p $SERVER_PID > /dev/null; then
-    echo -e "${GREEN}✓ Server started successfully!${NC}"
+if sudo systemctl is-active --quiet facility-server; then
+    echo -e "${GREEN}✓ Server service started successfully!${NC}"
     echo ""
     echo "=========================================="
     echo -e "${GREEN}Deployment Complete!${NC}"
     echo "=========================================="
     echo ""
     echo "Server Information:"
-    echo "  PID: $SERVER_PID"
     echo "  Port: $PORT (UDP)"
     echo "  Semantic: $SEMANTIC"
-    echo "  Log file: server.log"
+    echo "  Service: facility-server"
     echo ""
-    echo "Verify server is running:"
-    echo "  ps aux | grep server"
-    echo "  sudo netstat -ulnp | grep $PORT"
-    echo ""
-    echo "View logs:"
-    echo "  tail -f server.log"
-    echo ""
-    echo "Stop server:"
-    echo "  kill $SERVER_PID"
-    echo "  # or"
-    echo "  pkill -f 'bin/server'"
+    echo "Service commands:"
+    echo "  Status: sudo systemctl status facility-server"
+    echo "  Logs: sudo journalctl -u facility-server -f"
+    echo "  Stop: sudo systemctl stop facility-server"
+    echo "  Restart: sudo systemctl restart facility-server"
+    echo "  Disable: sudo systemctl disable facility-server"
     echo ""
     echo "Connect from client:"
     echo "  python3 client/gui/gui_client.py <SERVER_IP> $PORT"
     echo ""
     
     # Show initial log output
-    echo "Initial server output:"
+    echo "Initial service logs:"
     echo "----------------------------------------"
-    tail -10 server.log
+    sudo journalctl -u facility-server -n 10 --no-pager
     echo "----------------------------------------"
     
 else
-    echo -e "${RED}✗ Server failed to start${NC}"
-    echo "Check server.log for details:"
-    tail -20 server.log
+    echo -e "${RED}✗ Server service failed to start${NC}"
+    echo "Check service status:"
+    sudo systemctl status facility-server
     exit 1
 fi
