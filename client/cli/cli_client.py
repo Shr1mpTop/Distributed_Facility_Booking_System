@@ -350,41 +350,58 @@ class FacilityBookingClient:
         message = response.read_string()
         print(f"\n✓ {message}")
         print(f"Monitoring for {duration_seconds} seconds...")
-        print("(Waiting for updates from server...)\n")
+        print("(Waiting for updates from server...)")
+        print("Note: During monitoring, you cannot input new requests.\n")
         
         # Listen for updates
-        start_time = time.time()
+        start_time_monitor = time.time()
         self.sock.settimeout(1.0)  # Short timeout for checking elapsed time
+        update_count = 0
         
-        while time.time() - start_time < duration_seconds:
-            try:
-                update_data, _ = self.sock.recvfrom(MAX_BUFFER_SIZE)
-                
-                # Parse update
-                update = ByteBuffer(update_data)
-                update_status = update.read_uint8()
-                
-                if update_status == MSG_RESPONSE_SUCCESS:
-                    update_msg = update.read_string()
-                    num_slots = update.read_uint16()
+        try:
+            while time.time() - start_time_monitor < duration_seconds:
+                try:
+                    update_data, _ = self.sock.recvfrom(MAX_BUFFER_SIZE)
                     
-                    print(f"\n*** UPDATE: {update_msg} ***")
-                    print(f"Available time slots ({num_slots}):")
+                    # Parse update (server-initiated messages have request_id = 0)
+                    update = ByteBuffer(update_data)
+                    update_request_id = update.read_uint32()
+                    update_status = update.read_uint8()
                     
-                    for i in range(num_slots):
-                        start_time_slot = update.read_time()
-                        end_time_slot = update.read_time()
+                    if update_status == MSG_RESPONSE_SUCCESS:
+                        update_msg = update.read_string()
+                        num_slots = update.read_uint16()
                         
-                        start_dt = datetime.fromtimestamp(start_time_slot)
-                        end_dt = datetime.fromtimestamp(end_time_slot)
+                        update_count += 1
+                        current_time = datetime.now().strftime('%H:%M:%S')
+                        print(f"\n[{current_time}] UPDATE #{update_count}: {update_msg}")
+                        print(f"Available time slots ({num_slots}):")
                         
-                        print(f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}")
-                    print()
-                
-            except socket.timeout:
-                continue
+                        for i in range(num_slots):
+                            start_time_slot = update.read_time()
+                            end_time_slot = update.read_time()
+                            
+                            start_dt = datetime.fromtimestamp(start_time_slot)
+                            end_dt = datetime.fromtimestamp(end_time_slot)
+                            
+                            print(f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}")
+                        print()
+                    
+                except socket.timeout:
+                    # Check if monitoring period is over
+                    elapsed = time.time() - start_time_monitor
+                    remaining = duration_seconds - elapsed
+                    if remaining > 0 and int(elapsed) % 10 == 0:  # Print status every 10 seconds
+                        print(f"[Still monitoring... {int(remaining)} seconds remaining]")
+                    continue
+                except Exception as e:
+                    print(f"Error processing update: {e}")
+                    continue
         
-        print("Monitoring period ended")
+        except KeyboardInterrupt:
+            print("\n\nMonitoring interrupted by user")
+        
+        print(f"\nMonitoring period ended. Received {update_count} update(s).")
         self.sock.settimeout(TIMEOUT_SECONDS)  # Restore original timeout
     
     def get_last_booking_time(self):
@@ -524,12 +541,17 @@ class FacilityBookingClient:
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <server_ip> <server_port>")
-        sys.exit(1)
+    # Default server address
+    server_ip = "8.148.159.175"
+    server_port = 8080
     
-    server_ip = sys.argv[1]
-    server_port = int(sys.argv[2])
+    # Allow override from command line
+    if len(sys.argv) >= 2:
+        server_ip = sys.argv[1]
+    if len(sys.argv) >= 3:
+        server_port = int(sys.argv[2])
+    
+    print(f"Connecting to server: {server_ip}:{server_port}")
     
     client = FacilityBookingClient(server_ip, server_port)
     client.run()

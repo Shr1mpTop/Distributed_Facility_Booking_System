@@ -31,9 +31,9 @@
 - 线程安全的磁盘 I/O 操作
 
 ### 🖥️ 多客户端支持
-- **Python GUI 客户端**: 基于 tkinter 的图形界面（推荐）
-- **Python CLI 客户端**: 命令行交互界面
-- **Python 监控客户端**: 实时监控设施可用性变化
+- **Python GUI 客户端**: 基于 tkinter 的图形界面（推荐），集成实时监控功能
+- **Python CLI 客户端**: 命令行交互界面，支持阻塞式监控
+- **独立监控客户端**: 专用的图形化监控界面
 - **C++ CLI 客户端**: 高性能命令行客户端
 - **Java GUI 客户端**: 跨平台图形界面客户端
 
@@ -102,13 +102,24 @@ python3 client/gui/gui_client.py <server-ip> 8080
 
 ### 客户端启动
 
+**默认服务器**: 所有客户端默认连接到 `8.148.159.175:8080`，可通过命令行参数覆盖。
+
 | 客户端 | 命令 | 用途 |
 |-------|------|-----|
-| **Python GUI** | `python3 client/gui/gui_client.py <host> <port>` | 图形界面（推荐） |
-| **Python CLI** | `python3 client/cli/cli_client.py <host> <port>` | 命令行界面 |
-| **Python Monitor** | `python3 client/monitor/monitor_client.py <host> <port>` | 实时监控 |
+| **Python GUI** | `python3 client/gui/gui_client.py [host] [port]` | 图形界面（推荐）+ 监控功能 |
+| **Python CLI** | `python3 client/cli/cli_client.py [host] [port]` | 命令行界面 + 监控功能 |
+| **独立监控** | `python3 monitor/monitor_gui.py [host] [port]` | 专用监控界面 |
 | **C++ CLI** | `cd cpp_client && make && ./bin/cpp_client <host> <port>` | 高性能命令行 |
 | **Java GUI** | `cd java_client && mvn compile exec:java` | Java 图形界面 |
+
+**示例**:
+```bash
+# 使用默认服务器地址
+python3 client/gui/gui_client.py
+
+# 或指定自定义服务器
+python3 client/gui/gui_client.py 192.168.1.100 8080
+```
 
 ---
 

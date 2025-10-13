@@ -204,6 +204,10 @@ class FacilityBookingGUI:
     def __init__(self, server_ip: str, server_port: int):
         self.network = NetworkClient(server_ip, server_port)
         
+        # Monitoring state
+        self.monitoring = False
+        self.monitor_thread = None
+        
         # Create main window
         self.root = tk.Tk()
         self.root.title("设施预订系统")
@@ -264,7 +268,8 @@ class FacilityBookingGUI:
             ("Query", "Schedule"),
             ("Book", "New Booking"),
             ("Change", "Modify"),
-            ("Ops", "More")
+            ("Ops", "More"),
+            ("Monitor", "Monitor")
         ]
         
         self.nav_buttons = []
@@ -296,7 +301,7 @@ class FacilityBookingGUI:
 
         # Section frames
         self.section_frames = {}
-        for key in ["Query", "Book", "Change", "Ops"]:
+        for key in ["Query", "Book", "Change", "Ops", "Monitor"]:
             f = tk.Frame(content_frame, bg="#ffffff")
             f.grid(row=0, column=0, sticky="nsew")
             content_frame.rowconfigure(0, weight=1)
@@ -307,6 +312,7 @@ class FacilityBookingGUI:
         self.create_book_tab(self.section_frames["Book"])
         self.create_change_tab(self.section_frames["Change"])
         self.create_operations_tab(self.section_frames["Ops"])
+        self.create_monitor_tab(self.section_frames["Monitor"])
         self.show_section("Query")
 
         # Log area - Minimal and clean
@@ -826,6 +832,146 @@ class FacilityBookingGUI:
         )
         self.ops_result.pack(fill=tk.X, pady=(20,0))
         
+    def create_monitor_tab(self, parent):
+        """Monitor facility availability tab"""
+        frame = parent
+        frame.configure(bg="#ffffff")
+        
+        # Container with padding
+        container = tk.Frame(frame, bg="#ffffff")
+        container.pack(fill=tk.BOTH, expand=True, padx=40, pady=30)
+        
+        # Title
+        tk.Label(
+            container, 
+            text="Real-time Facility Monitor", 
+            font=("Helvetica Neue", 14, "bold"), 
+            bg="#ffffff",
+            fg="#1a1a1a"
+        ).pack(anchor="w", pady=(0,20))
+        
+        # Description
+        tk.Label(
+            container, 
+            text="Monitor a facility for real-time availability updates.\nNote: During monitoring, other operations will be disabled.", 
+            font=("Helvetica Neue", 10), 
+            bg="#ffffff",
+            fg="#999999",
+            justify=tk.LEFT
+        ).pack(anchor="w", pady=(0,20))
+        
+        # Facility selection
+        tk.Label(
+            container, 
+            text="Facility to Monitor", 
+            font=("Helvetica Neue", 10), 
+            bg="#ffffff",
+            fg="#999999"
+        ).pack(anchor="w", pady=(0,6))
+        
+        self.monitor_facility = ttk.Combobox(
+            container, 
+            width=38, 
+            font=("Helvetica Neue", 10)
+        )
+        self.monitor_facility['values'] = ('Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium')
+        self.monitor_facility.pack(anchor="w", pady=(0,12))
+        self.monitor_facility.current(0)
+        
+        # Monitor duration
+        tk.Label(
+            container, 
+            text="Monitor Duration (seconds)", 
+            font=("Helvetica Neue", 10), 
+            bg="#ffffff",
+            fg="#999999"
+        ).pack(anchor="w", pady=(0,6))
+        
+        self.monitor_duration = tk.Entry(
+            container, 
+            width=40, 
+            font=("Helvetica Neue", 11),
+            bg="#fafafa",
+            fg="#1a1a1a",
+            relief="flat",
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground="#e0e0e0"
+        )
+        self.monitor_duration.insert(0, "300")
+        self.monitor_duration.pack(anchor="w", pady=(0,20))
+        
+        # Control buttons frame
+        button_frame = tk.Frame(container, bg="#ffffff")
+        button_frame.pack(anchor="w", pady=(0,20))
+        
+        self.start_monitor_btn = tk.Button(
+            button_frame, 
+            text="Start Monitoring", 
+            command=self.start_monitoring, 
+            font=("Helvetica Neue", 10, "bold"), 
+            bg="#1a1a1a", 
+            fg="#ffffff", 
+            activebackground="#333333", 
+            activeforeground="#ffffff", 
+            relief="flat",
+            borderwidth=0,
+            padx=20,
+            pady=8,
+            cursor="hand2"
+        )
+        self.start_monitor_btn.pack(side=tk.LEFT, padx=(0,10))
+        
+        self.stop_monitor_btn = tk.Button(
+            button_frame, 
+            text="Stop Monitoring", 
+            command=self.stop_monitoring, 
+            font=("Helvetica Neue", 10, "bold"), 
+            bg="#666666", 
+            fg="#ffffff", 
+            activebackground="#999999", 
+            activeforeground="#ffffff", 
+            relief="flat",
+            borderwidth=0,
+            padx=20,
+            pady=8,
+            cursor="hand2",
+            state=tk.DISABLED
+        )
+        self.stop_monitor_btn.pack(side=tk.LEFT)
+        
+        # Monitor status
+        self.monitor_status = tk.Label(
+            container, 
+            text="Status: Not monitoring", 
+            font=("Helvetica Neue", 10), 
+            bg="#ffffff",
+            fg="#999999"
+        )
+        self.monitor_status.pack(anchor="w", pady=(0,12))
+        
+        # Results display
+        tk.Label(
+            container, 
+            text="Availability Updates", 
+            font=("Helvetica Neue", 10, "bold"), 
+            bg="#ffffff",
+            fg="#666666"
+        ).pack(anchor="w", pady=(0,8))
+        
+        self.monitor_result = scrolledtext.ScrolledText(
+            container, 
+            height=12, 
+            width=60, 
+            font=("Monaco", 9), 
+            bg="#fafafa", 
+            fg="#333333", 
+            borderwidth=0, 
+            highlightthickness=0,
+            relief="flat"
+        )
+        self.monitor_result.pack(fill=tk.BOTH, expand=True, pady=(0,0))
+        
     def log(self, message: str):
         """Add log message"""
         self.log_text.config(state='normal')
@@ -1151,6 +1297,154 @@ class FacilityBookingGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Extension failed: {str(e)}")
             self.log(f"Error: {str(e)}")
+    
+    def start_monitoring(self):
+        """Start monitoring a facility"""
+        if self.monitoring:
+            messagebox.showwarning("Warning", "Already monitoring")
+            return
+        
+        try:
+            facility_name = self.monitor_facility.get().strip()
+            duration = int(self.monitor_duration.get().strip())
+            
+            self.log(f"Registering monitor for {facility_name}...")
+            
+            # Build request
+            request = ByteBuffer()
+            request_id = self.network.get_next_request_id()
+            request.write_uint32(request_id)
+            request.write_uint8(MSG_MONITOR_FACILITY)
+            
+            payload = ByteBuffer()
+            payload.write_string(facility_name)
+            payload.write_uint32(duration)
+            
+            request.write_uint16(len(payload.buffer))
+            request.buffer.extend(payload.buffer)
+            
+            # Send request
+            response_data = self.network.send_request(request.get_data())
+            if not response_data:
+                self.monitor_result.delete('1.0', tk.END)
+                self.monitor_result.insert(tk.END, "Request timeout\n")
+                self.log("Request timeout")
+                return
+            
+            # Parse response
+            response = ByteBuffer(response_data)
+            resp_request_id = response.read_uint32()
+            status = response.read_uint8()
+            
+            if status == MSG_RESPONSE_ERROR:
+                error_msg = response.read_string()
+                self.monitor_result.delete('1.0', tk.END)
+                self.monitor_result.insert(tk.END, f"Registration failed: {error_msg}\n")
+                self.log(f"Registration failed: {error_msg}")
+                return
+            
+            message = response.read_string()
+            self.monitor_result.delete('1.0', tk.END)
+            self.monitor_result.insert(tk.END, f"✓ {message}\n")
+            self.monitor_result.insert(tk.END, f"Monitoring {facility_name} for {duration} seconds\n\n")
+            self.log(f"Monitoring started: {facility_name}")
+            
+            # Start monitoring
+            self.monitoring = True
+            self.start_monitor_btn.config(state=tk.DISABLED)
+            self.stop_monitor_btn.config(state=tk.NORMAL)
+            self.monitor_facility.config(state=tk.DISABLED)
+            self.monitor_duration.config(state=tk.DISABLED)
+            self.monitor_status.config(text=f"Status: Monitoring {facility_name}", fg="#4a9c2d")
+            
+            # Disable other tabs
+            for i, btn in enumerate(self.nav_buttons):
+                if i != 4:  # Keep Monitor tab enabled
+                    btn.config(state=tk.DISABLED)
+            
+            # Start listening thread
+            self.monitor_thread = threading.Thread(target=self.monitor_listen, daemon=True)
+            self.monitor_thread.start()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start monitoring: {str(e)}")
+            self.log(f"Error: {str(e)}")
+    
+    def stop_monitoring(self):
+        """Stop monitoring"""
+        self.monitoring = False
+        self.start_monitor_btn.config(state=tk.NORMAL)
+        self.stop_monitor_btn.config(state=tk.DISABLED)
+        self.monitor_facility.config(state="readonly")
+        self.monitor_duration.config(state=tk.NORMAL)
+        self.monitor_status.config(text="Status: Not monitoring", fg="#999999")
+        
+        # Re-enable other tabs
+        for btn in self.nav_buttons:
+            btn.config(state=tk.NORMAL)
+        
+        self.log("Monitoring stopped")
+    
+    def monitor_listen(self):
+        """Listen for monitor updates from server"""
+        import socket
+        try:
+            while self.monitoring:
+                try:
+                    # Set timeout to check monitoring flag periodically
+                    self.network.sock.settimeout(1.0)
+                    data, addr = self.network.sock.recvfrom(65507)
+                    
+                    # Process update
+                    self.process_monitor_update(data)
+                    
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    if self.monitoring:
+                        self.log(f"Listen error: {str(e)}")
+                    break
+        except Exception as e:
+            self.log(f"Monitor thread error: {str(e)}")
+        finally:
+            if self.monitoring:
+                self.root.after(0, self.stop_monitoring)
+    
+    def process_monitor_update(self, data):
+        """Process a monitor update from server"""
+        try:
+            response = ByteBuffer(data)
+            request_id = response.read_uint32()
+            status = response.read_uint8()
+            
+            if status == MSG_RESPONSE_SUCCESS:
+                message = response.read_string()
+                num_slots = response.read_uint16()
+                
+                update_text = f"\n[{datetime.now().strftime('%H:%M:%S')}] {message}\n"
+                update_text += f"Available slots: {num_slots}\n"
+                
+                for i in range(num_slots):
+                    start_time = response.read_time()
+                    end_time = response.read_time()
+                    
+                    start_dt = datetime.fromtimestamp(start_time)
+                    end_dt = datetime.fromtimestamp(end_time)
+                    
+                    update_text += f"  {i+1}. {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}\n"
+                
+                # Update display in main thread
+                self.root.after(0, lambda: self._update_monitor_display(update_text))
+            else:
+                self.root.after(0, lambda: self._update_monitor_display("\n[Error] Received error from server\n"))
+                
+        except Exception as e:
+            self.root.after(0, lambda: self._update_monitor_display(f"\n[Error] Failed to process update: {str(e)}\n"))
+    
+    def _update_monitor_display(self, text):
+        """Update monitor display (must be called from main thread)"""
+        self.monitor_result.insert(tk.END, text)
+        self.monitor_result.see(tk.END)
             
     def run(self):
         """Run GUI main loop"""
@@ -1162,12 +1456,15 @@ class FacilityBookingGUI:
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <server_ip> <server_port>")
-        sys.exit(1)
+    # Fixed server IP and port
+    server_ip = "8.148.159.175"
+    server_port = 8080
     
-    server_ip = sys.argv[1]
-    server_port = int(sys.argv[2])
+    # Allow override from command line
+    if len(sys.argv) >= 2:
+        server_ip = sys.argv[1]
+    if len(sys.argv) >= 3:
+        server_port = int(sys.argv[2])
     
     app = FacilityBookingGUI(server_ip, server_port)
     app.run()

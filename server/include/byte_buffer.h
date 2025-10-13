@@ -42,6 +42,8 @@ public:
     const uint8_t *data() const;
     size_t size() const;
     size_t remaining() const;
+    size_t position() const;
+    void set_position(size_t pos);
 };
 
 #endif // BYTE_BUFFER_H

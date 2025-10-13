@@ -29,7 +29,7 @@ public:
                          const std::vector<TimeSlot> &slots,
                          int sockfd);
 
-private:
+    // Clean up expired monitor registrations
     void cleanup_expired_monitors();
 };
 

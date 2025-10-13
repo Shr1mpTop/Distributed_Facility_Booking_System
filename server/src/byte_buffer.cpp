@@ -103,3 +103,15 @@ size_t ByteBuffer::remaining() const
 {
     return buffer.size() - read_pos;
 }
+
+size_t ByteBuffer::position() const
+{
+    return read_pos;
+}
+
+void ByteBuffer::set_position(size_t pos)
+{
+    if (pos > buffer.size())
+        throw std::runtime_error("Invalid position");
+    read_pos = pos;
+}

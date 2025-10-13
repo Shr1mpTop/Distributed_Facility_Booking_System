@@ -131,6 +131,7 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
               << request_id << ", Type: " << (int)message_type << std::endl;
     
     ByteBuffer response;
+    std::string affected_facility;  // Track which facility was affected
     
     // Create thread-local request handler
     RequestHandlers handlers(facility_manager, monitor_manager);
@@ -141,13 +142,43 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
                 response = handlers.handle_query_availability(request);
                 break;
                 
-            case BOOK_FACILITY:
-                response = handlers.handle_book_facility(request);
-                break;
+            case BOOK_FACILITY: {
+                // Save facility name before processing
+                size_t saved_pos = request.position();
+                affected_facility = request.read_string();
+                request.set_position(saved_pos);
                 
-            case CHANGE_BOOKING:
-                response = handlers.handle_change_booking(request);
+                response = handlers.handle_book_facility(request);
+                
+                // If booking successful, notify monitors
+                if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
+                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
+                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
+                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                }
                 break;
+            }
+                
+            case CHANGE_BOOKING: {
+                // Get booking info before processing
+                size_t saved_pos = request.position();
+                uint32_t booking_id = request.read_uint32();
+                request.set_position(saved_pos);
+                
+                if (facility_manager.booking_exists(booking_id)) {
+                    affected_facility = facility_manager.get_booking(booking_id).facility_name;
+                }
+                
+                response = handlers.handle_change_booking(request);
+                
+                // If change successful, notify monitors
+                if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
+                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
+                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
+                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                }
+                break;
+            }
                 
             case MONITOR_FACILITY:
                 response = handlers.handle_monitor_facility(request, client_addr);
@@ -157,9 +188,26 @@ ByteBuffer UDPServer::process_request(ByteBuffer& request, const sockaddr_in& cl
                 response = handlers.handle_get_last_booking_time(request);
                 break;
                 
-            case EXTEND_BOOKING:
+            case EXTEND_BOOKING: {
+                // Get booking info before processing
+                size_t saved_pos = request.position();
+                uint32_t booking_id = request.read_uint32();
+                request.set_position(saved_pos);
+                
+                if (facility_manager.booking_exists(booking_id)) {
+                    affected_facility = facility_manager.get_booking(booking_id).facility_name;
+                }
+                
                 response = handlers.handle_extend_booking(request);
+                
+                // If extension successful, notify monitors
+                if (response.data()[0] == RESPONSE_SUCCESS && !affected_facility.empty()) {
+                    std::vector<TimeSlot> updated_slots = facility_manager.get_available_slots(
+                        affected_facility, {0, 1, 2, 3, 4, 5, 6, 7});
+                    monitor_manager.notify_monitors(affected_facility, updated_slots, sockfd);
+                }
                 break;
+            }
                 
             default:
                 response.write_uint8(RESPONSE_ERROR);

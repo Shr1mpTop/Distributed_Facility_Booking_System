@@ -28,15 +28,22 @@ void MonitorManager::notify_monitors(const std::string &facility_name,
                                      const std::vector<TimeSlot> &slots,
                                      int sockfd)
 {
+    // First cleanup expired monitors
+    cleanup_expired_monitors();
+    
     auto it = monitors.find(facility_name);
     if (it == monitors.end())
         return;
 
     time_t now = time(nullptr);
     std::vector<ClientInfo> &clients = it->second;
+    
+    if (clients.empty())
+        return;
 
     // Build notification message
     ByteBuffer notification;
+    notification.write_uint32(0);  // request_id = 0 for server-initiated notifications
     notification.write_uint8(RESPONSE_SUCCESS);
     notification.write_string("Facility update: " + facility_name);
     notification.write_uint16(static_cast<uint16_t>(slots.size()));
@@ -48,6 +55,7 @@ void MonitorManager::notify_monitors(const std::string &facility_name,
     }
 
     // Send to all active monitors
+    int sent_count = 0;
     auto client_it = clients.begin();
     while (client_it != clients.end())
     {
@@ -55,13 +63,19 @@ void MonitorManager::notify_monitors(const std::string &facility_name,
         {
             sendto(sockfd, notification.data(), notification.size(), 0,
                    (struct sockaddr *)&client_it->address, sizeof(client_it->address));
-            std::cout << "Sent update to monitoring client" << std::endl;
+            sent_count++;
             ++client_it;
         }
         else
         {
             client_it = clients.erase(client_it);
         }
+    }
+    
+    if (sent_count > 0)
+    {
+        std::cout << "Sent availability update to " << sent_count 
+                  << " monitoring client(s) for " << facility_name << std::endl;
     }
 }
 
