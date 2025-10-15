@@ -388,7 +388,7 @@ class FacilityBookingGUI:
         self.show_section(key)
         
         # Update nav button styles
-        tabs_keys = ["Query", "Book", "Change", "Ops"]
+        tabs_keys = ["Query", "Book", "Change", "Ops", "Monitor"]
         for i, btn in enumerate(self.nav_buttons):
             if tabs_keys[i] == key:
                 btn.config(bg="#1a1a1a", fg="#ffffff")
