@@ -1022,6 +1022,10 @@ class FacilityBookingGUI:
         
     def query_availability(self):
         """Query availability and display in timetable"""
+        if self.monitoring:
+            messagebox.showwarning("Warning", "Cannot query while monitoring. Stop monitoring first.")
+            return
+            
         try:
             facility_name = self.selected_facility.get().strip()
             days = self.timetable.get_selected_days()  # 从时间表获取选中的天数
@@ -1106,6 +1110,10 @@ class FacilityBookingGUI:
             
     def book_facility_action(self):
         """Book facility"""
+        if self.monitoring:
+            messagebox.showwarning("Warning", "Cannot book while monitoring. Stop monitoring first.")
+            return
+            
         try:
             facility_name = self.selected_book_facility.get().strip()
             date_str = self.book_date.get().strip()
@@ -1174,6 +1182,10 @@ class FacilityBookingGUI:
             
     def change_booking(self):
         """Change booking"""
+        if self.monitoring:
+            messagebox.showwarning("Warning", "Cannot change booking while monitoring. Stop monitoring first.")
+            return
+            
         try:
             confirmation_id = int(self.change_id.get().strip())
             offset_minutes = int(self.change_offset.get().strip())
@@ -1225,6 +1237,10 @@ class FacilityBookingGUI:
             
     def get_last_booking_time(self):
         """Get last booking time"""
+        if self.monitoring:
+            messagebox.showwarning("Warning", "Cannot query while monitoring. Stop monitoring first.")
+            return
+            
         try:
             facility_name = self.last_time_facility.get().strip()
             
@@ -1399,8 +1415,24 @@ class FacilityBookingGUI:
             
             # Disable other tabs
             for i, btn in enumerate(self.nav_buttons):
-                if i != 4:  # Keep Monitor tab enabled
-                    btn.config(state=tk.DISABLED)
+                btn.config(state=tk.DISABLED)
+            
+            # Disable all input fields and buttons in other tabs
+            self.book_date.config(state=tk.DISABLED)
+            self.book_time.config(state=tk.DISABLED)
+            self.book_duration.config(state=tk.DISABLED)
+            self.book_facility_buttons[0].config(state=tk.DISABLED)
+            self.book_facility_buttons[1].config(state=tk.DISABLED)
+            self.book_facility_buttons[2].config(state=tk.DISABLED)
+            self.book_facility_buttons[3].config(state=tk.DISABLED)
+            self.book_facility_buttons[4].config(state=tk.DISABLED)
+            
+            self.change_id.config(state=tk.DISABLED)
+            self.change_offset.config(state=tk.DISABLED)
+            
+            self.last_time_facility.config(state=tk.DISABLED)
+            self.extend_id.config(state=tk.DISABLED)
+            self.extend_minutes.config(state=tk.DISABLED)
             
             # Start listening thread
             self.monitor_thread = threading.Thread(target=self.monitor_listen, daemon=True)
@@ -1422,6 +1454,20 @@ class FacilityBookingGUI:
         # Re-enable other tabs
         for btn in self.nav_buttons:
             btn.config(state=tk.NORMAL)
+        
+        # Re-enable all input fields and buttons
+        self.book_date.config(state=tk.NORMAL)
+        self.book_time.config(state=tk.NORMAL)
+        self.book_duration.config(state=tk.NORMAL)
+        for btn in self.book_facility_buttons:
+            btn.config(state=tk.NORMAL)
+        
+        self.change_id.config(state=tk.NORMAL)
+        self.change_offset.config(state=tk.NORMAL)
+        
+        self.last_time_facility.config(state="readonly")
+        self.extend_id.config(state=tk.NORMAL)
+        self.extend_minutes.config(state=tk.NORMAL)
         
         self.log("Monitoring stopped")
     

@@ -38,11 +38,11 @@ class NetworkClient:
         # Save original timeout
         original_timeout = self.sock.gettimeout()
         
-        # Set custom timeout if provided
-        if timeout is not None:
-            self.sock.settimeout(timeout)
-        
         try:
+            # Set custom timeout if provided
+            if timeout is not None:
+                self.sock.settimeout(timeout)
+            
             for attempt in range(retries):
                 try:
                     # Send request
@@ -61,9 +61,8 @@ class NetworkClient:
             
             return None
         finally:
-            # Restore original timeout
-            if timeout is not None:
-                self.sock.settimeout(original_timeout)
+            # Always restore original timeout
+            self.sock.settimeout(original_timeout)
     
     def close(self):
         """Close the socket."""

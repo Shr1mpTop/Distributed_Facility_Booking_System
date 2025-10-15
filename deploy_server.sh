@@ -119,7 +119,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(pwd)/bin/server $PORT --semantic $SEMANTIC
+ExecStart=/bin/bash -c '$(pwd)/bin/server $PORT --semantic $SEMANTIC 2>&1 | tee -a $(pwd)/server.log'
 WorkingDirectory=$(pwd)
 Restart=always
 RestartSec=5
