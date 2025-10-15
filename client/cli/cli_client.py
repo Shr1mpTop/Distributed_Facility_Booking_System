@@ -404,9 +404,9 @@ class FacilityBookingClient:
                         print(f"{'='*60}\n")
                     
                 except socket.timeout:
-                    # Print status every 10 seconds
+                    # Print status every 60 seconds
                     current_time = time.time()
-                    if current_time - last_status_time >= 10:
+                    if current_time - last_status_time >= 60:
                         elapsed = current_time - start_time_monitor
                         remaining = duration_seconds - elapsed
                         if remaining > 0:

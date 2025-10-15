@@ -107,7 +107,7 @@ class TimeTableView(tk.Frame):
                 self.time_slots[f"{day_index}-{time}"] = slot
     
     def toggle_day(self, day_index):
-        """切换日期选择状态"""
+        """Toggle day selection state"""
         if day_index in self.selected_days:
             self.selected_days.remove(day_index)
             self.day_buttons[day_index].config(bg='#e8e8e8', fg='#999999')
@@ -115,27 +115,27 @@ class TimeTableView(tk.Frame):
             self.selected_days.add(day_index)
             self.day_buttons[day_index].config(bg='#1a1a1a', fg='white')
         
-        # 更新列的高亮显示
+        # Update column highlight
         self.update_column_highlight()
     
     def update_column_highlight(self):
-        """更新列的高亮显示"""
+        """Update column highlight display"""
         for day_index in range(7):
             is_selected = day_index in self.selected_days
             for time_key, slot in self.time_slots.items():
                 if time_key.startswith(f"{day_index}-"):
-                    if not slot.cget('text'):  # 如果是空白格子
+                    if not slot.cget('text'):  # If blank slot
                         if is_selected:
-                            slot.config(bg='#fafafa', highlightbackground='#e0e0e0')  # 高亮背景
+                            slot.config(bg='#fafafa', highlightbackground='#e0e0e0')  # Highlight background
                         else:
-                            slot.config(bg='#f5f5f5', highlightbackground='#eeeeee')  # 灰色背景
+                            slot.config(bg='#f5f5f5', highlightbackground='#eeeeee')  # Gray background
     
     def get_selected_days(self):
         """获取选中的天数"""
         return sorted(list(self.selected_days))
                 
     def clear_bookings(self):
-        """清除所有预订显示"""
+        """Clear all booking displays"""
         for slot in self.time_slots.values():
             slot.config(text="", bg='white')
         self.update_column_highlight()
@@ -163,7 +163,7 @@ class TimeTableView(tk.Frame):
             time_key = f"{day}-{hour:02d}:{minute:02d}"
             
             if time_key in self.time_slots:
-                # 简约的深色标记
+                # Minimalist dark marking
                 display_text = f"#{booking_id}" if booking_id else "●"
                 self.time_slots[time_key].config(
                     text=display_text,
@@ -197,7 +197,7 @@ class TimeTableView(tk.Frame):
             time_key = f"{day}-{hour:02d}:{minute:02d}"
             
             if time_key in self.time_slots:
-                # 简约的绿色标记
+                # Minimalist green marking
                 self.time_slots[time_key].config(
                     text="○",
                     bg='#e8f5e9',
@@ -215,7 +215,7 @@ class FacilityBookingGUI:
         
         # Create main window
         self.root = tk.Tk()
-        self.root.title("设施预订系统")
+        self.root.title("Facility Booking System")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         self.root.resizable(True, True)
@@ -250,7 +250,7 @@ class FacilityBookingGUI:
         
         # Create main window
         self.root = tk.Tk()
-        self.root.title("设施预订系统")
+        self.root.title("Facility Booking System")
         self.root.geometry("1200x800")
         self.root.resizable(True, True)
         
@@ -462,22 +462,22 @@ class FacilityBookingGUI:
         self.timetable.pack(fill=tk.BOTH, expand=True)
     
     def select_facility(self, facility_name):
-        """选择设施"""
+        """Select facility"""
         self.selected_facility.set(facility_name)
-        # 更新按钮样式 - 简约风格
+        # Update button styles - minimalist
         facilities = ['Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium']
         for i, btn in enumerate(self.facility_buttons):
             if facilities[i] == facility_name:
                 btn.config(bg="#1a1a1a", fg="white")
             else:
                 btn.config(bg="#f5f5f5", fg="#666666")
-        # 自动刷新
+        # Auto refresh
         self.query_availability()
     
     def select_book_facility(self, facility_name):
-        """选择预订设施"""
+        """Select booking facility"""
         self.selected_book_facility.set(facility_name)
-        # 更新按钮样式 - 简约风格
+        # Update button styles - minimalist
         facilities = ['Conference_Room_A', 'Conference_Room_B', 'Lab_101', 'Lab_102', 'Auditorium']
         for i, btn in enumerate(self.book_facility_buttons):
             if facilities[i] == facility_name:
@@ -1026,8 +1026,8 @@ class FacilityBookingGUI:
             facility_name = self.selected_facility.get().strip()
             days = self.timetable.get_selected_days()  # 从时间表获取选中的天数
             
-            self.log(f"正在查询 {facility_name} 的可用时段 (天数: {days})...")
-            self.timetable.clear_bookings()  # 清除之前的显示
+            self.log(f"Querying availability for {facility_name} (days: {days})...")
+            self.timetable.clear_bookings()  # Clear previous display
             
             # Build request
             request = ByteBuffer()
@@ -1047,7 +1047,7 @@ class FacilityBookingGUI:
             # Send request
             response_data = self.network.send_request(request.get_data())
             if not response_data:
-                self.log("请求超时")
+                self.log("Request timeout")
                 return
             
             # Parse response
@@ -1057,7 +1057,7 @@ class FacilityBookingGUI:
             
             if status == MSG_RESPONSE_ERROR:
                 error_msg = response.read_string()
-                self.log(f"错误: {error_msg}")
+                self.log(f"Error: {error_msg}")
                 return
             
             # Read and display available time slots
@@ -1082,12 +1082,12 @@ class FacilityBookingGUI:
                         end_dt.strftime('%H:%M')
                     )
             
-            self.log(f"查询成功，找到 {num_slots} 个可用时段")
+            self.log(f"Query successful, found {num_slots} available slots")
             
-            # 更新列的高亮显示
+            # Update column highlight display
             self.timetable.update_column_highlight()
 
-            # 在显示可用时段后，获取并显示我的预订
+            # After displaying available slots, fetch and display my bookings
             self._fetch_and_display_my_bookings()
             
         except Exception as e:
@@ -1095,13 +1095,13 @@ class FacilityBookingGUI:
             self.log(f"Error: {str(e)}")
 
     def _fetch_and_display_my_bookings(self):
-        """获取并显示当前用户的所有预订
+        """Fetch and display current user's all bookings
         
-        注意：此功能需要服务器支持 GET_MY_BOOKINGS 消息类型
-        目前服务器未实现此功能，因此此方法不执行任何操作
+        Note: This feature requires server support for GET_MY_BOOKINGS message type
+        Currently the server does not implement this feature, so this method does nothing
         """
-        # 服务器当前不支持获取用户预订列表的功能
-        # 预订信息会在查询可用性时通过其他方式显示
+        # Server currently does not support getting user booking list feature
+        # Booking information will be displayed through other means when querying availability
         pass
             
     def book_facility_action(self):
@@ -1155,17 +1155,17 @@ class FacilityBookingGUI:
             
             # Read confirmation ID
             confirmation_id = response.read_uint32()
-            result_text = f"✓ BookingSuccess!\n\n"
+            result_text = f"✓ Booking successful!\n\n"
             result_text += f"Confirmation ID: {confirmation_id}\n"
             result_text += f"Facility: {facility_name}\n"
             result_text += f"Time: {start_dt.strftime('%Y-%m-%d %H:%M')} to {datetime.fromtimestamp(end_time).strftime('%H:%M')}\n"
             
             self.book_result.delete('1.0', tk.END)
             self.book_result.insert(tk.END, result_text)
-            self.log(f"BookingSuccess，Confirmation ID: {confirmation_id}")
-            messagebox.showinfo("Success", f"BookingSuccess！Confirmation ID: {confirmation_id}")
+            self.log(f"Booking successful, Confirmation ID: {confirmation_id}")
+            messagebox.showinfo("Success", f"Booking successful! Confirmation ID: {confirmation_id}")
             
-            # 自动刷新查询结果
+            # Auto refresh query results
             self.query_availability()
             
         except Exception as e:
@@ -1275,7 +1275,7 @@ class FacilityBookingGUI:
             
             self.ops_result.delete('1.0', tk.END)
             self.ops_result.insert(tk.END, result_text)
-            self.log("QueryingSuccess")
+            self.log("Query successful")
             
         except Exception as e:
             messagebox.showerror("Error", f"Query failed: {str(e)}")
