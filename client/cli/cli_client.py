@@ -362,7 +362,8 @@ class FacilityBookingClient:
         start_time_monitor = time.time()
         self.sock.settimeout(1.0)  # Short timeout for checking elapsed time
         update_count = 0
-        last_status_time = 0  # Track last time we printed status
+        consecutive_timeouts = 0  # Track consecutive timeouts to detect connection issues
+        processed_updates = set()  # Track processed updates to avoid duplicates
         
         try:
             while time.time() - start_time_monitor < duration_seconds:
@@ -380,6 +381,12 @@ class FacilityBookingClient:
                         booking_id = update.read_uint32()
                         start_time_slot = update.read_time()
                         end_time_slot = update.read_time()
+                        
+                        # Check for duplicate updates
+                        update_key = (booking_id, operation, start_time_slot, end_time_slot)
+                        if update_key in processed_updates:
+                            continue  # Skip duplicate update
+                        processed_updates.add(update_key)
                         
                         update_count += 1
                         current_time = datetime.now().strftime('%H:%M:%S')
@@ -402,16 +409,16 @@ class FacilityBookingClient:
                             print(f"  Previous:   {old_start_dt.strftime('%Y-%m-%d %H:%M')} to {old_end_dt.strftime('%H:%M')}")
                         
                         print(f"{'='*60}\n")
+                        consecutive_timeouts = 0  # Reset timeout counter on successful update
                     
                 except socket.timeout:
-                    # Print status every 60 seconds
-                    current_time = time.time()
-                    if current_time - last_status_time >= 60:
-                        elapsed = current_time - start_time_monitor
-                        remaining = duration_seconds - elapsed
-                        if remaining > 0:
-                            print(f"[Still monitoring... {int(remaining)} seconds remaining]")
-                            last_status_time = current_time
+                    consecutive_timeouts += 1
+                    if consecutive_timeouts >= 10:
+                        response_data = self._send_request(request.get_data())
+                        if response_data:
+                            # Parse response if needed, but for monitor, just continue
+                            pass
+                        consecutive_timeouts = 0  # Reset after resend
                     continue
                 except Exception as e:
                     print(f"Error processing update: {e}")
