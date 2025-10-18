@@ -1474,33 +1474,32 @@ class FacilityBookingGUI:
     def monitor_listen(self):
         """Listen for monitor updates from server"""
         import socket
+        import time
         try:
-            # Set non-blocking mode for more responsive updates
-            self.network.sock.setblocking(False)
+            # Set socket timeout for responsive checking of monitoring flag
+            self.network.sock.settimeout(0.5)
+            
             while self.monitoring:
                 try:
                     data, addr = self.network.sock.recvfrom(65507)
-                    # Process update
+                    # Process update immediately
                     self.process_monitor_update(data)
                     
-                except Exception as e:
-                    # Handle EAGAIN/EWOULDBLOCK (no data available)
-                    if hasattr(e, 'errno') and e.errno in (11, 35):  # 11=Linux EAGAIN, 35=macOS EAGAIN
-                        self.root.after(100, lambda: None)  # Small delay to prevent busy loop
-                        continue
-                    elif self.monitoring:
-                        self.log(f"Listen error: {str(e)}")
-                    break
+                except socket.timeout:
+                    # Timeout is normal - just check if we should continue monitoring
+                    continue
+                    
                 except Exception as e:
                     if self.monitoring:
-                        self.log(f"Listen error: {str(e)}")
+                        self.root.after(0, lambda msg=str(e): self.log(f"Listen error: {msg}"))
                     break
+                    
         except Exception as e:
-            self.log(f"Monitor thread error: {str(e)}")
+            self.root.after(0, lambda msg=str(e): self.log(f"Monitor thread error: {msg}"))
         finally:
-            # Restore blocking mode
+            # Restore original socket settings
             try:
-                self.network.sock.setblocking(True)
+                self.network.sock.settimeout(5.0)
             except:
                 pass
             if self.monitoring:
@@ -1536,6 +1535,39 @@ class FacilityBookingGUI:
                     old_end_dt = datetime.fromtimestamp(old_end_time)
                     
                     update_text += f"Previous: {old_start_dt.strftime('%Y-%m-%d %H:%M')} to {old_end_dt.strftime('%H:%M')}\n"
+                
+                # Read updated availability information
+                num_slots = response.read_uint16()
+                update_text += f"\nUpdated Availability ({num_slots} slots):\n"
+                
+                # Clear previous availability display on timetable
+                self.root.after(0, lambda: self.timetable.clear_bookings())
+                
+                for i in range(num_slots):
+                    slot_start = response.read_time()
+                    slot_end = response.read_time()
+                    
+                    slot_start_dt = datetime.fromtimestamp(slot_start)
+                    slot_end_dt = datetime.fromtimestamp(slot_end)
+                    
+                    # Calculate day offset
+                    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                    slot_day = (slot_start_dt.replace(hour=0, minute=0, second=0, microsecond=0) - today).days
+                    
+                    # Update timetable display
+                    if 0 <= slot_day <= 6:
+                        self.root.after(0, lambda d=slot_day, s=slot_start_dt.strftime('%H:%M'), e=slot_end_dt.strftime('%H:%M'): 
+                                      self.timetable.mark_available(d, s, e))
+                    
+                    # Add first few slots to text display
+                    if i < 5:  # Show first 5 slots in text
+                        update_text += f"  {slot_start_dt.strftime('%m-%d %H:%M')}-{slot_end_dt.strftime('%H:%M')}\n"
+                
+                if num_slots > 5:
+                    update_text += f"  ... and {num_slots - 5} more slots\n"
+                
+                # Update column highlight
+                self.root.after(0, lambda: self.timetable.update_column_highlight())
                 
                 # Update display in main thread
                 self.root.after(0, lambda: self._update_monitor_display(update_text))

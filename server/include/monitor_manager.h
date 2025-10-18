@@ -25,9 +25,11 @@ public:
                           uint32_t duration_seconds);
 
     // Notify all monitors for a facility about a booking change
+    // Include updated availability information
     void notify_monitors(const std::string &facility_name,
                          const BookingChange &change,
-                         int sockfd);
+                         int sockfd,
+                         class FacilityManager &facility_manager);
 
     // Clean up expired monitor registrations
     void cleanup_expired_monitors();
