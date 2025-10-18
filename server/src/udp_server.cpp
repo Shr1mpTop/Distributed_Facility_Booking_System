@@ -353,27 +353,13 @@ void UDPServer::process_task(const RequestTask &task)
         const uint8_t *buffer = task.data.data();
         size_t buffer_len = task.data.size();
 
-        // For at-most-once, check cache first
-        if (use_at_most_once)
-        {
-            uint32_t request_id;
-            std::memcpy(&request_id, buffer, sizeof(request_id));
-            request_id = ntohl(request_id);
+        uint32_t request_id;
+        std::memcpy(&request_id, buffer, sizeof(request_id));
+        request_id = ntohl(request_id);
 
-            ClientAddr client_key;
-            client_key.ip = task.client_addr.sin_addr.s_addr;
-            client_key.port = task.client_addr.sin_port;
-
-            std::vector<uint8_t> cached_response;
-            if (check_cache(client_key, request_id, cached_response))
-            {
-                std::cout << "[Thread " << std::this_thread::get_id()
-                          << "] Found cached response for request " << request_id << std::endl;
-
-                send_response_with_drop_simulation(cached_response, task.client_addr);
-                return;
-            }
-        }
+        ClientAddr client_key;
+        client_key.ip = task.client_addr.sin_addr.s_addr;
+        client_key.port = task.client_addr.sin_port;
 
         ByteBuffer request(buffer, buffer_len);
         ByteBuffer response = process_request(request, task.client_addr);
@@ -381,14 +367,11 @@ void UDPServer::process_task(const RequestTask &task)
         // Cache response if using at-most-once
         if (use_at_most_once)
         {
-            uint32_t request_id;
-            std::memcpy(&request_id, buffer, sizeof(request_id));
-            request_id = ntohl(request_id);
-
-            ClientAddr client_key;
-            client_key.ip = task.client_addr.sin_addr.s_addr;
-            client_key.port = task.client_addr.sin_port;
-
+            cache_response(client_key, request_id, response);
+        }
+        // For at-least-once, we still cache to detect duplicates for logging
+        else
+        {
             cache_response(client_key, request_id, response);
         }
 
@@ -482,7 +465,7 @@ void UDPServer::send_response_with_drop_simulation(const std::vector<uint8_t> &r
     // Simulate packet drop
     if (should_drop_packet())
     {
-        std::cout << "[DROP] Response dropped (" << response_data.size() << " bytes)" << std::endl;
+        std::cout << "[DROP] Simulated response packet drop (" << response_data.size() << " bytes)" << std::endl;
         return; // Don't send the response
     }
 

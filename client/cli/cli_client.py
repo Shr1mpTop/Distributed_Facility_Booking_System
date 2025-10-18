@@ -139,25 +139,21 @@ class FacilityBookingClient:
         
         for attempt in range(retries):
             try:
-                # Simulate packet drop on client side
+                # Simulate packet drop on client side by not sending
                 if random.random() < self.drop_rate:
-                    print(f"[DROP] Request dropped (attempt {attempt + 1}/{retries})")
-                    # Simulate timeout by sleeping
-                    import time
-                    time.sleep(TIMEOUT_SECONDS)
-                    continue
-                
-                # Send request
-                self.sock.sendto(request_data, (self.server_ip, self.server_port))
+                    print(f"[DROP] Request packet dropped (attempt {attempt + 1}/{retries})")
+                    # Fall through to timeout
+                else:
+                    # Send request
+                    self.sock.sendto(request_data, (self.server_ip, self.server_port))
                 
                 # Wait for response
                 response_data, _ = self.sock.recvfrom(MAX_BUFFER_SIZE)
                 return response_data
                 
             except socket.timeout:
-                if attempt < retries - 1:
-                    print(f"Timeout, retrying... (attempt {attempt + 2}/{retries})")
-                else:
+                print(f"Timeout, retransmitting... (attempt {attempt + 2}/{retries})")
+                if attempt >= retries - 1:
                     print("Request timeout after all retries")
                     return None
         
