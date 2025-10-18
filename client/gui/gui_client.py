@@ -1483,8 +1483,9 @@ class FacilityBookingGUI:
                     # Process update
                     self.process_monitor_update(data)
                     
-                except socket.error as e:
-                    if e.errno == 11:  # EAGAIN/EWOULDBLOCK - no data available
+                except Exception as e:
+                    # Handle EAGAIN/EWOULDBLOCK (no data available)
+                    if hasattr(e, 'errno') and e.errno in (11, 35):  # 11=Linux EAGAIN, 35=macOS EAGAIN
                         self.root.after(100, lambda: None)  # Small delay to prevent busy loop
                         continue
                     elif self.monitoring:
