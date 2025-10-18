@@ -19,6 +19,21 @@ void MonitorManager::register_monitor(const std::string &facility_name,
     client_info.address = client_addr;
     client_info.expiry_time = time(nullptr) + duration_seconds;
 
+    // Check if this client is already registered for this facility
+    auto it = monitors.find(facility_name);
+    if (it != monitors.end()) {
+        for (auto &existing_client : it->second) {
+            if (existing_client.address.sin_addr.s_addr == client_addr.sin_addr.s_addr &&
+                existing_client.address.sin_port == client_addr.sin_port) {
+                // Update expiry time for existing client
+                existing_client.expiry_time = client_info.expiry_time;
+                std::cout << "Updated monitor registration for " << facility_name << std::endl;
+                return;
+            }
+        }
+    }
+
+    // Add new client
     monitors[facility_name].push_back(client_info);
 
     std::cout << "Registered monitor for " << facility_name << std::endl;
