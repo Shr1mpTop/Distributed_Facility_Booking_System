@@ -1475,17 +1475,21 @@ class FacilityBookingGUI:
         """Listen for monitor updates from server"""
         import socket
         try:
+            # Set non-blocking mode for more responsive updates
+            self.network.sock.setblocking(False)
             while self.monitoring:
                 try:
-                    # Set timeout to check monitoring flag periodically
-                    self.network.sock.settimeout(1.0)
                     data, addr = self.network.sock.recvfrom(65507)
-                    
                     # Process update
                     self.process_monitor_update(data)
                     
-                except socket.timeout:
-                    continue
+                except socket.error as e:
+                    if e.errno == 11:  # EAGAIN/EWOULDBLOCK - no data available
+                        self.root.after(100, lambda: None)  # Small delay to prevent busy loop
+                        continue
+                    elif self.monitoring:
+                        self.log(f"Listen error: {str(e)}")
+                    break
                 except Exception as e:
                     if self.monitoring:
                         self.log(f"Listen error: {str(e)}")
@@ -1493,6 +1497,11 @@ class FacilityBookingGUI:
         except Exception as e:
             self.log(f"Monitor thread error: {str(e)}")
         finally:
+            # Restore blocking mode
+            try:
+                self.network.sock.setblocking(True)
+            except:
+                pass
             if self.monitoring:
                 self.root.after(0, self.stop_monitoring)
     
@@ -1529,16 +1538,20 @@ class FacilityBookingGUI:
                 
                 # Update display in main thread
                 self.root.after(0, lambda: self._update_monitor_display(update_text))
+                self.log(f"Monitor update received: {message}")
             else:
                 self.root.after(0, lambda: self._update_monitor_display("\n[Error] Received error from server\n"))
+                self.log("Monitor update: error from server")
                 
         except Exception as e:
             self.root.after(0, lambda: self._update_monitor_display(f"\n[Error] Failed to process update: {str(e)}\n"))
+            self.log(f"Monitor update processing error: {str(e)}")
     
     def _update_monitor_display(self, text):
         """Update monitor display (must be called from main thread)"""
         self.monitor_result.insert(tk.END, text)
         self.monitor_result.see(tk.END)
+        self.monitor_result.update_idletasks()  # Force UI update
             
     def run(self):
         """Run GUI main loop"""
