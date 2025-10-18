@@ -3,6 +3,7 @@
  */
 
 #include "../include/monitor_manager.h"
+#include "../include/facility_manager.h"
 #include "../include/byte_buffer.h"
 #include "../include/message_types.h"
 #include <sys/socket.h>
