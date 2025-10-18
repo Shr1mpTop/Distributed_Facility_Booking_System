@@ -210,8 +210,8 @@ class TimeTableView(tk.Frame):
 class FacilityBookingGUI:
     """Main GUI client class"""
     
-    def __init__(self, server_ip: str, server_port: int):
-        self.network = NetworkClient(server_ip, server_port)
+    def __init__(self, server_ip: str, server_port: int, drop_rate: float = 0.0):
+        self.network = NetworkClient(server_ip, server_port, drop_rate)
         
         # Create main window
         self.root = tk.Tk()
@@ -239,10 +239,6 @@ class FacilityBookingGUI:
         
         # Create interface
         self.create_widgets()
-    """Main GUI client class"""
-    
-    def __init__(self, server_ip: str, server_port: int):
-        self.network = NetworkClient(server_ip, server_port)
         
         # Monitoring state
         self.monitoring = False

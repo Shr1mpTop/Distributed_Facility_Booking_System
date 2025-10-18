@@ -116,9 +116,10 @@ class ByteBuffer:
 class FacilityBookingClient:
     """Client for the distributed facility booking system."""
     
-    def __init__(self, server_ip: str, server_port: int):
+    def __init__(self, server_ip: str, server_port: int, drop_rate: float = 0.0):
         self.server_ip = server_ip
         self.server_port = server_port
+        self.drop_rate = drop_rate
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(TIMEOUT_SECONDS)
         self.next_request_id = 1
@@ -134,8 +135,18 @@ class FacilityBookingClient:
         Send a request to the server and wait for a response.
         Implements retry logic for at-least-once semantics.
         """
+        import random
+        
         for attempt in range(retries):
             try:
+                # Simulate packet drop on client side
+                if random.random() < self.drop_rate:
+                    print(f"[DROP] Request dropped (attempt {attempt + 1}/{retries})")
+                    # Simulate timeout by sleeping
+                    import time
+                    time.sleep(TIMEOUT_SECONDS)
+                    continue
+                
                 # Send request
                 self.sock.sendto(request_data, (self.server_ip, self.server_port))
                 
@@ -572,16 +583,51 @@ def main():
     # Default server address
     server_ip = "8.148.159.175"
     server_port = 8080
+    drop_rate = 0.0
     
-    # Allow override from command line
-    if len(sys.argv) >= 2:
-        server_ip = sys.argv[1]
-    if len(sys.argv) >= 3:
-        server_port = int(sys.argv[2])
+    # Parse command line arguments
+    i = 1
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        if arg == "--drop-rate":
+            if i + 1 < len(sys.argv):
+                try:
+                    drop_rate = float(sys.argv[i + 1])
+                    if drop_rate < 0.0 or drop_rate > 1.0:
+                        print("Error: drop-rate must be between 0.0 and 1.0")
+                        return
+                    i += 2
+                except ValueError:
+                    print("Error: drop-rate must be a number")
+                    return
+            else:
+                print("Error: --drop-rate requires a value")
+                return
+        elif arg.startswith("--"):
+            print(f"Unknown option: {arg}")
+            print("Usage: python cli_client.py [server_ip] [server_port] [--drop-rate rate]")
+            return
+        else:
+            # Positional arguments
+            if i == 1:
+                server_ip = arg
+            elif i == 2:
+                try:
+                    server_port = int(arg)
+                except ValueError:
+                    print("Error: server_port must be a number")
+                    return
+            else:
+                print("Too many positional arguments")
+                print("Usage: python cli_client.py [server_ip] [server_port] [--drop-rate rate]")
+                return
+            i += 1
     
     print(f"Connecting to server: {server_ip}:{server_port}")
+    if drop_rate > 0.0:
+        print(f"Packet drop rate: {drop_rate}")
     
-    client = FacilityBookingClient(server_ip, server_port)
+    client = FacilityBookingClient(server_ip, server_port, drop_rate)
     client.run()
 
 

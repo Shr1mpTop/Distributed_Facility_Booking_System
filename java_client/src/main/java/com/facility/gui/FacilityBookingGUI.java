@@ -55,7 +55,11 @@ public class FacilityBookingGUI extends JFrame {
     private static final Color ACCENT_COLOR = new Color(154, 140, 152);
     
     public FacilityBookingGUI(String serverIp, int serverPort) {
-        this.network = new NetworkClient(serverIp, serverPort);
+        this(serverIp, serverPort, 0.0);
+    }
+
+    public FacilityBookingGUI(String serverIp, int serverPort, double dropRate) {
+        this.network = new NetworkClient(serverIp, serverPort, dropRate);
         
         // Setup main window
         setTitle("Facility Booking System - Client");
@@ -963,13 +967,55 @@ public class FacilityBookingGUI extends JFrame {
     }
     
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.err.println("Usage: java FacilityBookingGUI <server_ip> <server_port>");
-            System.exit(1);
+        String serverIp = "8.148.159.175";
+        int serverPort = 8080;
+        double dropRate = 0.0;
+        
+        // Parse command line arguments
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--drop-rate")) {
+                if (i + 1 < args.length) {
+                    try {
+                        dropRate = Double.parseDouble(args[++i]);
+                        if (dropRate < 0.0 || dropRate > 1.0) {
+                            System.err.println("Error: drop-rate must be between 0.0 and 1.0");
+                            System.exit(1);
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error: drop-rate must be a number");
+                        System.exit(1);
+                    }
+                } else {
+                    System.err.println("Error: --drop-rate requires a value");
+                    System.exit(1);
+                }
+            } else if (args[i].startsWith("--")) {
+                System.err.println("Unknown option: " + args[i]);
+                System.err.println("Usage: java FacilityBookingGUI [server_ip] [server_port] [--drop-rate rate]");
+                System.exit(1);
+            } else {
+                // Positional arguments
+                if (i == 0) {
+                    serverIp = args[i];
+                } else if (i == 1) {
+                    try {
+                        serverPort = Integer.parseInt(args[i]);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error: server_port must be a number");
+                        System.exit(1);
+                    }
+                } else {
+                    System.err.println("Too many positional arguments");
+                    System.err.println("Usage: java FacilityBookingGUI [server_ip] [server_port] [--drop-rate rate]");
+                    System.exit(1);
+                }
+            }
         }
         
-        String serverIp = args[0];
-        int serverPort = Integer.parseInt(args[1]);
+        System.out.println("Connecting to server: " + serverIp + ":" + serverPort);
+        if (dropRate > 0.0) {
+            System.out.println("Packet drop rate: " + dropRate);
+        }
         
         // Set look and feel
         try {
@@ -979,7 +1025,7 @@ public class FacilityBookingGUI extends JFrame {
         }
         
         SwingUtilities.invokeLater(() -> {
-            FacilityBookingGUI gui = new FacilityBookingGUI(serverIp, serverPort);
+            FacilityBookingGUI gui = new FacilityBookingGUI(serverIp, serverPort, dropRate);
             gui.setVisible(true);
         });
     }

@@ -22,9 +22,10 @@ private:
     int sock_fd;
     struct sockaddr_in server_addr;
     uint32_t next_request_id;
+    double drop_rate;
 
 public:
-    NetworkClient(const std::string &ip, int port);
+    NetworkClient(const std::string &ip, int port, double drop_rate = 0.0);
     ~NetworkClient();
 
     // Get next request ID

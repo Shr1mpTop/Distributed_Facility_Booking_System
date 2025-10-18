@@ -4,6 +4,7 @@ Handles UDP communication with server
 """
 
 import socket
+import random
 from typing import Optional
 from .byte_buffer import ByteBuffer
 from .message_types import TIMEOUT_SECONDS, MAX_RETRIES, MAX_BUFFER_SIZE
@@ -12,9 +13,10 @@ from .message_types import TIMEOUT_SECONDS, MAX_RETRIES, MAX_BUFFER_SIZE
 class NetworkClient:
     """Handles network communication with the server."""
     
-    def __init__(self, server_ip: str, server_port: int):
+    def __init__(self, server_ip: str, server_port: int, drop_rate: float = 0.0):
         self.server_ip = server_ip
         self.server_port = server_port
+        self.drop_rate = drop_rate  # Packet drop rate (0.0-1.0)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(TIMEOUT_SECONDS)
         self.next_request_id = 1
@@ -45,6 +47,15 @@ class NetworkClient:
             
             for attempt in range(retries):
                 try:
+                    # Simulate request packet drop
+                    if random.random() < self.drop_rate:
+                        print(f"[DROP] Request dropped (attempt {attempt + 1}/{retries})")
+                        # Simulate timeout for dropped packet
+                        if attempt < retries - 1:
+                            continue
+                        else:
+                            return None
+                    
                     # Send request
                     self.sock.sendto(request_data, (self.server_ip, self.server_port))
                     

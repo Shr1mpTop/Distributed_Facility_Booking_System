@@ -11,15 +11,22 @@
 #include <cstring>
 #include <chrono>
 
-UDPServer::UDPServer(int port, bool at_most_once, size_t thread_count)
+UDPServer::UDPServer(int port, bool at_most_once, size_t thread_count, float drop_rate)
     : port(port), sockfd(-1), use_at_most_once(at_most_once),
-      num_threads(thread_count), shutdown_flag(false),
+      drop_rate(drop_rate), num_threads(thread_count), shutdown_flag(false),
       total_requests(0), processed_requests(0), cached_responses(0)
 {
+
+    // Initialize random seed for packet dropping
+    srand(time(nullptr));
 
     facility_manager.initialize();
 
     std::cout << "Initializing server with " << num_threads << " worker threads" << std::endl;
+    if (drop_rate > 0.0f)
+    {
+        std::cout << "Packet drop rate: " << (drop_rate * 100.0f) << "%" << std::endl;
+    }
 
     // Create worker threads
     for (size_t i = 0; i < num_threads; ++i)
@@ -363,8 +370,7 @@ void UDPServer::process_task(const RequestTask &task)
                 std::cout << "[Thread " << std::this_thread::get_id()
                           << "] Found cached response for request " << request_id << std::endl;
 
-                sendto(sockfd, cached_response.data(), cached_response.size(), 0,
-                       (struct sockaddr *)&task.client_addr, sizeof(task.client_addr));
+                send_response_with_drop_simulation(cached_response, task.client_addr);
                 return;
             }
         }
@@ -387,18 +393,8 @@ void UDPServer::process_task(const RequestTask &task)
         }
 
         // Send response
-        ssize_t sent = sendto(sockfd, response.data(), response.size(), 0,
-                              (struct sockaddr *)&task.client_addr, sizeof(task.client_addr));
-
-        if (sent < 0)
-        {
-            std::cerr << "Error sending response" << std::endl;
-        }
-        else
-        {
-            std::cout << "[Thread " << std::this_thread::get_id()
-                      << "] Sent " << sent << " bytes response" << std::endl;
-        }
+        send_response_with_drop_simulation(std::vector<uint8_t>(response.data(), response.data() + response.size()),
+                                           task.client_addr);
     }
     catch (const std::exception &e)
     {
@@ -471,4 +467,36 @@ void UDPServer::print_statistics() const
     std::cout << "Worker threads: " << num_threads << std::endl;
     std::cout << "========================\n"
               << std::endl;
+}
+
+bool UDPServer::should_drop_packet() const
+{
+    if (drop_rate <= 0.0f)
+        return false;
+    return (rand() % 100) < (drop_rate * 100.0f);
+}
+
+void UDPServer::send_response_with_drop_simulation(const std::vector<uint8_t> &response_data,
+                                                   const sockaddr_in &client_addr)
+{
+    // Simulate packet drop
+    if (should_drop_packet())
+    {
+        std::cout << "[DROP] Response dropped (" << response_data.size() << " bytes)" << std::endl;
+        return; // Don't send the response
+    }
+
+    // Send response normally
+    ssize_t sent = sendto(sockfd, response_data.data(), response_data.size(), 0,
+                          (struct sockaddr *)&client_addr, sizeof(client_addr));
+
+    if (sent < 0)
+    {
+        std::cerr << "Error sending response" << std::endl;
+    }
+    else
+    {
+        std::cout << "[Thread " << std::this_thread::get_id()
+                  << "] Sent " << sent << " bytes response" << std::endl;
+    }
 }

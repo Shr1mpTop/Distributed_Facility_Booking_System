@@ -14,10 +14,16 @@ public class NetworkClient {
     private int serverPort;
     private DatagramSocket socket;
     private int nextRequestId;
+    private double dropRate;
 
     public NetworkClient(String serverIp, int serverPort) {
+        this(serverIp, serverPort, 0.0);
+    }
+
+    public NetworkClient(String serverIp, int serverPort, double dropRate) {
         this.serverIp = serverIp;
         this.serverPort = serverPort;
+        this.dropRate = dropRate;
         this.nextRequestId = 1;
         
         try {
@@ -57,6 +63,15 @@ public class NetworkClient {
 
             for (int attempt = 0; attempt < retries; attempt++) {
                 try {
+                    // Simulate packet drop on client side
+                    if (Math.random() < dropRate) {
+                        System.out.println("[DROP] Request dropped (attempt " + 
+                            (attempt + 1) + "/" + retries + ")");
+                        // Simulate timeout
+                        Thread.sleep(MessageTypes.TIMEOUT_SECONDS * 1000);
+                        continue;
+                    }
+
                     // Send request
                     InetAddress address = InetAddress.getByName(serverIp);
                     DatagramPacket sendPacket = new DatagramPacket(

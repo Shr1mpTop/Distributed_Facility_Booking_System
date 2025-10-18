@@ -101,12 +101,12 @@ class PerformanceMetrics:
 
 class FacilityTestClient:
     """测试客户端"""
-    def __init__(self, server_ip: str, server_port: int, client_id: int, metrics: PerformanceMetrics):
+    def __init__(self, server_ip: str, server_port: int, client_id: int, metrics: PerformanceMetrics, drop_rate: float = 0.0):
         self.server_ip = server_ip
         self.server_port = server_port
         self.client_id = client_id
         self.metrics = metrics
-        self.client = NetworkClient(server_ip, server_port)
+        self.client = NetworkClient(server_ip, server_port, drop_rate)
         self.request_id_counter = 1
     
     def _get_next_request_id(self) -> int:
@@ -253,7 +253,7 @@ def print_live_stats(metrics: PerformanceMetrics, start_time: float,
 
 
 def run_performance_test(server_ip: str, server_port: int, 
-                         num_threads: int, operations_per_thread: int):
+                         num_threads: int, operations_per_thread: int, drop_rate: float = 0.0):
     """运行性能测试"""
     print("=" * 80)
     print("多线程并发性能测试")
@@ -262,6 +262,8 @@ def run_performance_test(server_ip: str, server_port: int,
     print(f"并发线程数: {num_threads}")
     print(f"每线程操作数: {operations_per_thread}")
     print(f"总操作数: {num_threads * operations_per_thread}")
+    if drop_rate > 0.0:
+        print(f"丢包率: {drop_rate}")
     print("=" * 80)
     
     # 测试设施列表（使用服务器中实际存在的设施）
@@ -272,7 +274,7 @@ def run_performance_test(server_ip: str, server_port: int,
     metrics = PerformanceMetrics()
     
     # 创建测试客户端
-    clients = [FacilityTestClient(server_ip, server_port, i, metrics) 
+    clients = [FacilityTestClient(server_ip, server_port, i, metrics, drop_rate) 
                for i in range(num_threads)]
     
     # 启动实时统计线程
@@ -362,13 +364,48 @@ def run_performance_test(server_ip: str, server_port: int,
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("用法: python performance_test.py <server_ip> <server_port> [num_threads] [ops_per_thread]")
-        print("示例: python performance_test.py 127.0.0.1 8080 50 100")
+        print("用法: python performance_test.py <server_ip> <server_port> [num_threads] [ops_per_thread] [--drop-rate rate]")
+        print("示例: python performance_test.py 127.0.0.1 8080 50 100 --drop-rate 0.1")
         sys.exit(1)
     
     server_ip = sys.argv[1]
     server_port = int(sys.argv[2])
-    num_threads = int(sys.argv[3]) if len(sys.argv) > 3 else 50
-    ops_per_thread = int(sys.argv[4]) if len(sys.argv) > 4 else 100
+    num_threads = 50
+    ops_per_thread = 100
+    drop_rate = 0.0
     
-    run_performance_test(server_ip, server_port, num_threads, ops_per_thread)
+    # Parse additional arguments
+    i = 3
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        if arg == "--drop-rate":
+            if i + 1 < len(sys.argv):
+                try:
+                    drop_rate = float(sys.argv[i + 1])
+                    if drop_rate < 0.0 or drop_rate > 1.0:
+                        print("错误: drop-rate 必须在 0.0 到 1.0 之间")
+                        sys.exit(1)
+                    i += 2
+                except ValueError:
+                    print("错误: drop-rate 必须是一个数字")
+                    sys.exit(1)
+            else:
+                print("错误: --drop-rate 需要一个值")
+                sys.exit(1)
+        elif arg.startswith("--"):
+            print(f"未知选项: {arg}")
+            print("用法: python performance_test.py <server_ip> <server_port> [num_threads] [ops_per_thread] [--drop-rate rate]")
+            sys.exit(1)
+        else:
+            # Positional arguments
+            if i == 3:
+                num_threads = int(arg)
+            elif i == 4:
+                ops_per_thread = int(arg)
+            else:
+                print("位置参数过多")
+                print("用法: python performance_test.py <server_ip> <server_port> [num_threads] [ops_per_thread] [--drop-rate rate]")
+                sys.exit(1)
+            i += 1
+    
+    run_performance_test(server_ip, server_port, num_threads, ops_per_thread, drop_rate)

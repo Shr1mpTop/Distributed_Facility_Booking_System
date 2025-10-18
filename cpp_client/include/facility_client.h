@@ -24,7 +24,7 @@ private:
     NetworkClient network_client;
 
 public:
-    FacilityBookingClient(const std::string &server_ip, int server_port);
+    FacilityBookingClient(const std::string &server_ip, int server_port, double drop_rate = 0.0);
     ~FacilityBookingClient();
 
     // Query facility availability

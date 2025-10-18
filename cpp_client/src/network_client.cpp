@@ -7,10 +7,15 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/time.h>
+#include <cstdlib>
+#include <ctime>
 
-NetworkClient::NetworkClient(const std::string &ip, int port)
-    : server_ip(ip), server_port(port), next_request_id(1)
+NetworkClient::NetworkClient(const std::string &ip, int port, double drop_rate)
+    : server_ip(ip), server_port(port), next_request_id(1), drop_rate(drop_rate)
 {
+    // Initialize random seed
+    srand(time(nullptr));
+
     // Create UDP socket
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_fd < 0)
@@ -52,6 +57,16 @@ bool NetworkClient::send_request(const uint8_t *request_data, size_t request_len
 
     for (int attempt = 0; attempt < retries; ++attempt)
     {
+        // Simulate packet drop on client side
+        if (drop_rate > 0.0 && (rand() % 100) < (drop_rate * 100))
+        {
+            std::cout << "[DROP] Request dropped (attempt "
+                      << (attempt + 1) << "/" << retries << ")" << std::endl;
+            // Simulate timeout
+            sleep(timeout_sec);
+            continue;
+        }
+
         // Send request
         ssize_t sent = sendto(sock_fd, request_data, request_len, 0,
                               (struct sockaddr *)&server_addr, sizeof(server_addr));

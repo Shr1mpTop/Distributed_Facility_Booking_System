@@ -12,8 +12,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-FacilityBookingClient::FacilityBookingClient(const std::string &server_ip, int server_port)
-    : network_client(server_ip, server_port)
+FacilityBookingClient::FacilityBookingClient(const std::string &server_ip, int server_port, double drop_rate)
+    : network_client(server_ip, server_port, drop_rate)
 {
 }
 
